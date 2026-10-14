@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Card, Col, Collapse, Form, Input, Modal, Row, Select, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AppstoreOutlined, FundOutlined, TeamOutlined, SwapOutlined, ImportOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FundOutlined, TeamOutlined, SwapOutlined, ImportOutlined, CheckCircleOutlined, SettingOutlined, UnorderedListOutlined, DatabaseOutlined, LineChartOutlined } from '@ant-design/icons';
+import { DateText, FundKind, Num, PageIntro, RecordState, ShareCell, StatCard, TradeType, numColumn } from './ui';
 import { Workbench, FundCenter, localToday } from './BusinessPages';
 import catalog from '../shared/field-catalog.json';
 import navigation from '../shared/navigation.json';
@@ -89,15 +90,15 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(route.get('date') || '') ? route.get('date')! : localToday();
   const fundId = route.get('fund') || undefined;
   const fundSection = ['info', 'classes', 'nav', 'compositions', 'files'].includes(route.get('section') || '') ? route.get('section')! : 'info';
-  const navigate = (patch: Record<string, string | undefined>) => { const next = new URLSearchParams(route); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key); } const targetPage = patch.page || active;
+  const navigate = (patch: Record<string, string | undefined>, options: { replace?: boolean } = {}) => { const next = new URLSearchParams(route); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key); } const targetPage = patch.page || active;
     if (nativePages[targetPage] && (!embeddedPage || targetPage !== active)) {
       next.delete('page');
-      routerNavigate({ pathname: nativePages[targetPage], search: next.toString() });
+      routerNavigate({ pathname: nativePages[targetPage], search: next.toString() }, options);
     } else if (embeddedPage && targetPage !== active) {
-      routerNavigate({ pathname: '/admin/finance', search: next.toString() });
+      routerNavigate({ pathname: '/admin/finance', search: next.toString() }, options);
     } else {
       if (embeddedPage) next.delete('page');
-      setRoute(next);
+      setRoute(next, options);
     }
   };
   useEffect(() => {
@@ -108,12 +109,13 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
   }, [embeddedPage, active, nativePages]);
   const setActive = (page: string) => navigate({ page });
   const setDate = (date: string) => navigate({ date });
-  const openFund = (id: string, section = 'info', share?: string) => navigate({ page: 'funds', fund: id, section, share });
+  const openFund = (id: string, section = 'info', share?: string, options?: { replace?: boolean }) => navigate({ page: 'funds', fund: id, section, share }, options);
+  const qualityCategory = route.get('category') || undefined;
   const [navContext, setNavContext] = useState<any>();
   const documentFundId = route.get('documentFund') || undefined;
   const setDocumentFundId = (id?: string) => navigate({ documentFund: id });
   const compositionFundId = route.get('compositionFund') || undefined;
-  const setCompositionFundId = (id?: string) => navigate({ compositionFund: id });
+  const setCompositionFundId = (id?: string, options?: { replace?: boolean }) => navigate({ compositionFund: id }, options);
   const [metadata, setMetadata] = useState<any>();
   const [summary, setSummary] = useState<any>({});
   const [refresh, setRefresh] = useState(0);
@@ -289,34 +291,80 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
     Modal.confirm({ title: `删除 ${row.nav_date || row.return_date || row.value_date} 的${type === 'benchmark'?'基准数值':type === 'nav' ? '净值' : '收益'}`, content: type==='benchmark'?`基准：${row._benchmark_name || row.benchmark_id}；原数值 ${row.index_value}。只删除此日期数值，基准定义保留。`:`基金份额：${row._share_label || shareLabel(row.share_class_id)}。删除后重新计算相关持仓；缺少净值时显示空值。`, okText: '确认删除', okButtonProps: { danger: true }, onOk: () => save('deleteSeries', { data_type: type, id: row.id, technical_revision: row.technical_revision }).catch(()=>{}) });
   }
   const tabs = [
-    { key:'quality',label:'数据质量',children:<QualityWorkspace active={active==='quality'} refresh={refresh} resolve={resolveIssue} source={openIssueSource} canWrite={canWrite} canConfigure={metadata?.permissions?.configure} asOf={date} setDate={setDate} /> },
+    { key:'quality',label:'数据质量',children:<QualityWorkspace active={active==='quality'} refresh={refresh} resolve={resolveIssue} source={openIssueSource} canWrite={canWrite} canConfigure={metadata?.permissions?.configure} asOf={date} setDate={setDate} category={qualityCategory} setCategory={category => navigate({ category }, { replace: true })} /> },
     { key: 'drafts', label: '个人草稿', children: <DraftWorkspace read={read} save={save} resume={resumeDraft} refresh={refresh} canWrite={canWrite} /> },
     { key: 'imports', label: '导入与纠错', children: canWrite ? <ImportWorkspace save={save} target={importTarget} /> : <Alert type="info" message="当前角色只读，不能创建或提交导入批次" /> },
     { key: 'fund-register', label: '基金资料管理', children: <Card title="基金资料" extra={<Button type="primary" disabled={!canWrite} onClick={() => { fundForm.resetFields(); fundForm.setFieldsValue({ fund_kind: 'third_party', share_classes: [{ values: {}, terms: {} }] }); open('fund'); }}>新建基金</Button>}>
-      {businessTable('funds', '基金', [{ title: '基金简称', dataIndex: 'short_name', render: (text, row) => <Button type="link" onClick={() => editFund(row)}>{text}</Button> }, { title: '类型', dataIndex: 'fund_kind', render: value => value === 'third_party' ? '三方基金' : '自营基金' }, { title: 'LEI', dataIndex: 'lei' }, { title: '份额类别', render: (_, row) => <>{(row._share_classes || []).slice(0, 3).map(item => <Tag key={item.id}>{item.class_label || item.isin} · {item.currency}</Tag>)}{row._share_classes?.length > 3 && <Text type="secondary">共 {row._share_classes.length} 个份额，可从份额状态查看全部</Text>}</> }, { title: '资料版本', dataIndex: 'business_version', render: (value, row) => <Button type="link" onClick={async () => { setVersions(await read('versions', { fund_id: row.id })); setDialog('versions'); }}>V{value} · 查看历史</Button> }, { title: '状态', dataIndex: 'is_deleted', render: value => value ? <Tag>已删除</Tag> : <Tag color="green">有效</Tag> }, { title: '操作', render: (_, row) => <Space>{row.fund_kind === 'proprietary' && <Button type="link" onClick={() => { navigate({ page: 'compositions', compositionFund: row.id }); }}>成分</Button>}<Button type="link" onClick={() => { navigate({ page: 'documents', documentFund: row.id }); }}>文档</Button><Button type="link" onClick={async () => { const aggregate = await read('fund', { id: row.id }); setEditing({ ...aggregate.fund, all_classes: aggregate.share_classes }); setDialog('classes'); }}>份额状态</Button><Button type="link" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('funds', row)}>{row.is_deleted ? '恢复' : '删除'}</Button></Space> }], [stateControl(), { key: 'fund_kind', label: '基金类型', options: [{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }] }])}
+      <Text type="secondary">全部基金记录、资料版本与删除恢复。日常补录净值请到“基金中心 → 基金列表”。</Text>
+      {businessTable('funds', '基金', [
+        { title: '基金', dataIndex: 'short_name', width: 280, render: (text, row) => <div className="finance-cell"><Button className="finance-text-link" type="link" onClick={() => editFund(row)}>{text}</Button><span className="finance-cell-sub">{row.lei || 'LEI 未填写'}</span></div> },
+        { title: '类型', dataIndex: 'fund_kind', width: 100, render: value => <FundKind kind={value} /> },
+        { title: '份额类别', render: (_, row) => <Space size={[4, 4]} wrap>{(row._share_classes || []).slice(0, 3).map(item => <Tag key={item.id} bordered={false}>{item.class_label || item.isin} · {item.currency}</Tag>)}{row._share_classes?.length > 3 && <Text type="secondary">等 {row._share_classes.length} 个</Text>}</Space> },
+        { title: '资料版本', dataIndex: 'business_version', width: 130, render: (value, row) => <Button className="finance-text-link" type="link" onClick={async () => { setVersions(await read('versions', { fund_id: row.id })); setDialog('versions'); }}>V{value} · 查看历史</Button> },
+        { title: '状态', dataIndex: 'is_deleted', width: 80, render: value => <RecordState deleted={value} /> },
+        { title: '操作', width: 230, render: (_, row) => <Space size={0} wrap>{row.fund_kind === 'proprietary' && <Button type="link" size="small" onClick={() => { navigate({ page: 'compositions', compositionFund: row.id }); }}>成分</Button>}<Button type="link" size="small" onClick={() => { navigate({ page: 'documents', documentFund: row.id }); }}>文档</Button><Button type="link" size="small" onClick={async () => { const aggregate = await read('fund', { id: row.id }); setEditing({ ...aggregate.fund, all_classes: aggregate.share_classes }); setDialog('classes'); }}>份额状态</Button><Button type="link" size="small" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('funds', row)}>{row.is_deleted ? '恢复' : '删除'}</Button></Space> },
+      ], [stateControl(), { key: 'fund_kind', label: '基金类型', options: [{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }] }])}
     </Card> },
     { key: 'entities', label: '客户与主体', children: <Card title="投资主体" extra={<Button type="primary" disabled={!canWrite} onClick={() => { entityForm.resetFields(); open('entity'); }}>新建主体</Button>}>
-      <Text type="secondary">同一客户可有多个投资主体。申赎和持仓分别记在各主体名下。</Text>
-      {businessTable('investment_entities', '主体', [{ title: '主体名称', dataIndex: 'legal_name', render: (text, row) => <Button type="link" onClick={() => editEntity(row)}>{text}</Button> }, { title: '客户编号', dataIndex: '_client_code' }, { title: '常用名', dataIndex: 'common_name' }, { title: '客户类型', dataIndex: 'client_type' }, { title: '账户状态', dataIndex: 'account_status' }, { title: 'CDD 批准日期', dataIndex: 'latest_cdd_approval_date' }, { title: '记录状态', dataIndex: 'is_deleted', render: value => value ? <Tag>已删除</Tag> : <Tag color="green">有效</Tag> }, { title: '操作', render: (_, row) => <Button type="link" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('investment_entities', row)}>{row.is_deleted ? '恢复' : '删除'}</Button> }], [stateControl()])}
+      <Text type="secondary">同一客户编号下可有多个投资主体，申赎和持仓分别记在各主体名下。点击主体名称查看或修改资料。</Text>
+      {businessTable('investment_entities', '主体', [
+        { title: '投资主体', dataIndex: 'legal_name', width: 260, render: (text, row) => <div className="finance-cell"><Button className="finance-text-link" type="link" onClick={() => editEntity(row)}>{text}</Button>{row.common_name && <span className="finance-cell-sub">常用名：{row.common_name}</span>}</div> },
+        { title: '客户编号', dataIndex: '_client_code', render: value => <Text copyable={value ? { text: value } : false}>{value || '—'}</Text> },
+        { title: '客户类型', dataIndex: 'client_type', render: value => value || '—' },
+        { title: '账户状态', dataIndex: 'account_status', render: value => value ? <Tag bordered={false}>{value}</Tag> : '—' },
+        { title: 'CDD 批准日期', dataIndex: 'latest_cdd_approval_date', width: 130, render: value => <DateText value={value} /> },
+        { title: '记录状态', dataIndex: 'is_deleted', width: 90, render: value => <RecordState deleted={value} /> },
+        { title: '操作', width: 90, render: (_, row) => <Button type="link" size="small" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('investment_entities', row)}>{row.is_deleted ? '恢复' : '删除'}</Button> },
+      ], [stateControl()])}
     </Card> },
     { key: 'trades', label: '申赎录入', children: <Card title="申赎记录" extra={<Button type="primary" disabled={!canWrite} onClick={() => { tradeForm.resetFields(); tradeForm.setFieldsValue({ transaction_type: '初次申购' }); open('trade'); }}>录入申赎</Button>}>
       <Text type="secondary">保存即生效。系统按确认日期检查历史持有份额，金额和费用保留手工输入。</Text>
-      {businessTable('transactions', '申赎', [{ title: '日期', dataIndex: 'confirmation_date' }, { title: '主体', dataIndex: '_entity_name' }, { title: '基金份额', dataIndex: '_share_label' }, { title: '类型', dataIndex: 'transaction_type' }, { title: '确认份额', dataIndex: 'confirmed_units' }, { title: '金额', dataIndex: 'amount' }, { title: '状态', dataIndex: 'is_void', render: value => value ? <Tag>已撤销</Tag> : <Tag color="green">生效</Tag> }, { title: '操作', render: (_, row) => !row.is_void && <Space><Button disabled={!canWrite} type="link" onClick={() => editTrade(row)}>修改</Button><Button danger disabled={!canWrite} type="link" onClick={() => { setEditing(row); setDialog('void'); setError(''); }}>撤销</Button></Space> }], [stateControl('已撤销'), { key: 'entity_id', label: '主体', resource: 'investment_entities', params: { state: 'all' } }, { key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all' } }, ...dateControls], { state: 'active' })}
+      {businessTable('transactions', '申赎', [
+        { title: '确认日期', dataIndex: 'confirmation_date', width: 110, render: value => <DateText value={value} /> },
+        { title: '投资主体', dataIndex: '_entity_name', width: 160 },
+        { title: '基金份额', dataIndex: '_share_label', width: 300, render: value => <ShareCell label={value} /> },
+        { title: '类型', dataIndex: 'transaction_type', width: 96, render: value => <TradeType value={value} /> },
+        numColumn({ title: '确认份额', dataIndex: 'confirmed_units', width: 140 }),
+        numColumn({ title: '金额', dataIndex: 'amount', width: 200, render: (value, row) => <Num value={value} suffix={row.currency} /> }),
+        { title: '状态', dataIndex: 'is_void', width: 80, render: value => <RecordState deleted={value} deletedLabel="已撤销" activeLabel="生效" /> },
+        { title: '操作', width: 120, render: (_, row) => !row.is_void && <Space size={0}><Button disabled={!canWrite} type="link" size="small" onClick={() => editTrade(row)}>修改</Button><Button danger disabled={!canWrite} type="link" size="small" onClick={() => { setEditing(row); setDialog('void'); setError(''); }}>撤销</Button></Space> },
+      ], [stateControl('已撤销'), { key: 'entity_id', label: '主体', resource: 'investment_entities', params: { state: 'all' } }, { key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all' } }, ...dateControls], { state: 'active' })}
     </Card> },
     { key: 'series', label: '净值与收益', children: <Card title="净值与 MTD 收益" extra={<Space><Button disabled={!canWrite} onClick={() => { seriesForm.resetFields(); seriesForm.setFieldValue('data_type', 'returns'); open('series'); }}>录入收益</Button><Button type="primary" disabled={!canWrite} onClick={() => { seriesForm.resetFields(); seriesForm.setFieldValue('data_type', 'nav'); open('series'); }}>录入净值</Button></Space>}>
-      <Tabs items={[{ key: 'nav', label: '净值', children: businessTable('fund_navs', '净值', [{ title: '份额类别', dataIndex: '_share_label' }, { title: '日期', dataIndex: 'nav_date' }, { title: '单位净值', dataIndex: 'nav_per_unit' }, { title: '操作', render: (_, row) => <Button type="link" danger disabled={!canWrite} onClick={() => removeSeries('nav', row)}>删除</Button> }], [{ key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all' } }, ...dateControls]) }, { key: 'returns', label: 'MTD 收益', children: businessTable('fund_returns', '收益', [{ title: '份额类别', dataIndex: '_share_label' }, { title: '日期', dataIndex: 'return_date' }, { title: 'MTD 收益率', dataIndex: 'mtd_return', render: value => `${new Decimal(value).times('100').toFixed()}%` }, { title: '是否预估', dataIndex: 'estimate_label', render: value => value ?? '未填写' }, { title: '操作', render: (_, row) => <Button type="link" danger disabled={!canWrite} onClick={() => removeSeries('returns', row)}>删除</Button> }], [{ key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all', fund_kind: 'third_party' } }, { key: 'estimate', label: '估算标记', options: [{ value: '是', label: '预估' }, { value: '否', label: '正式' }, { value: 'unknown', label: '未分类' }] }, ...dateControls]) }]} />
+      <Text type="secondary">全部份额的净值与月度收益明细。按单只基金核对、补录，请从“基金列表”进入对应基金的净值标签。</Text>
+      <Tabs items={[{ key: 'nav', label: '净值', children: businessTable('fund_navs', '净值', [
+        { title: '基金份额', dataIndex: '_share_label', render: value => <ShareCell label={value} /> },
+        { title: '净值日期', dataIndex: 'nav_date', width: 120, render: value => <DateText value={value} /> },
+        numColumn({ title: '单位净值', dataIndex: 'nav_per_unit', width: 200 }),
+        { title: '操作', width: 80, render: (_, row) => <Button type="link" size="small" danger disabled={!canWrite} onClick={() => removeSeries('nav', row)}>删除</Button> },
+      ], [{ key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all' } }, ...dateControls]) }, { key: 'returns', label: 'MTD 收益', children: businessTable('fund_returns', '收益', [
+        { title: '基金份额', dataIndex: '_share_label', render: value => <ShareCell label={value} /> },
+        { title: '收益日期', dataIndex: 'return_date', width: 120, render: value => <DateText value={value} /> },
+        numColumn({ title: 'MTD 收益率', dataIndex: 'mtd_return', width: 160, render: value => <span className="finance-num" title={value}>{new Decimal(value).times('100').toFixed()}%</span> }),
+        { title: '估算标记', dataIndex: 'estimate_label', width: 110, render: value => value === '是' ? <Tag color="orange" bordered={false}>预估</Tag> : value === '否' ? <Tag color="success" bordered={false}>正式</Tag> : <Tag bordered={false}>未填写</Tag> },
+        { title: '操作', width: 80, render: (_, row) => <Button type="link" size="small" danger disabled={!canWrite} onClick={() => removeSeries('returns', row)}>删除</Button> },
+      ], [{ key: 'share_class_id', label: '份额', resource: 'share_classes', params: { state: 'all', fund_kind: 'third_party' } }, { key: 'estimate', label: '估算标记', options: [{ value: '是', label: '预估' }, { value: '否', label: '正式' }, { value: 'unknown', label: '未分类' }] }, ...dateControls]) }]} />
     </Card> },
-    { key: 'positions', label: '持仓核对', children: <Card title="当前持仓" extra={<Button onClick={reload}>刷新</Button>}>
-      <Text type="secondary">取最近可用净值计算原币市值。缺少净值时保留空值。</Text>
-      <QueryTable action="positionList" title="持仓" refresh={refresh} rowKey={row => `${row.entity_id}:${row.share_class_id}`} controls={[{ key: 'entity_id', label: '主体', resource: 'investment_entities', params: { state: 'all' } }, { key: 'balance', label: '持仓', options: [{ value: 'all', label: '全部' }, { value: 'positive', label: '有持仓' }, { value: 'zero', label: '零持仓' }] }, { key: 'as_of', label: '截至日期', type: 'date' }, { key: 'currency', label: '币种', type: 'text' }]} columns={[{ title: '投资主体', dataIndex: 'entity_name' }, { title: '基金', dataIndex: 'fund_name' }, { title: '份额', dataIndex: 'class_label' }, { title: '币种', dataIndex: 'currency' }, { title: '持有份额', dataIndex: 'units' }, { title: '最新净值', dataIndex: 'nav_per_unit', render: value => value ?? '缺少净值' }, { title: '净值日期', dataIndex: 'nav_date' }, { title: '持有市值', dataIndex: 'market_value', render: value => value === null ? '—' : new Decimal(value).toFixed(2) }, { title: '记录状态', render: (_, row) => <>{row.fund_deleted && <Tag>基金已删除</Tag>}{row.entity_deleted && <Tag>主体已删除</Tag>}{row.class_deleted && <Tag>份额已停用</Tag>}</> }, { title: '操作', render: (_, row) => <Button type="link" disabled={!canWrite || row.fund_deleted || row.entity_deleted || row.class_deleted || !new Decimal(row.units).gt('0')} onClick={() => { tradeForm.resetFields(); tradeForm.setFieldsValue({ entity_id: row.entity_id, share_class_id: row.share_class_id, currency: row.currency, transaction_type: '赎回', confirmation_date: new Date().toISOString().slice(0, 10) }); open('trade'); }}>赎回</Button> }]} />
+    { key: 'positions', label: '持仓核对', children: <Card title="当前持仓">
+      <Text type="secondary">按申赎记录累计份额，取不晚于截至日期的最近净值计算原币市值，不做汇率换算。缺少净值时市值留空。</Text>
+      <QueryTable action="positionList" title="持仓" refresh={refresh} rowKey={row => `${row.entity_id}:${row.share_class_id}`} controls={[{ key: 'entity_id', label: '主体', resource: 'investment_entities', params: { state: 'all' } }, { key: 'balance', label: '持仓', options: [{ value: 'all', label: '全部' }, { value: 'positive', label: '有持仓' }, { value: 'zero', label: '零持仓' }] }, { key: 'as_of', label: '截至日期', type: 'date' }, { key: 'currency', label: '币种', type: 'text' }]} columns={[
+        { title: '投资主体', dataIndex: 'entity_name', width: 200, render: (value, row) => <div className="finance-cell"><span className="finance-cell-main">{value}</span>{row.entity_deleted && <span><Tag bordered={false}>主体已删除</Tag></span>}</div> },
+        { title: '基金 / 份额', dataIndex: 'fund_name', render: (value, row) => <div className="finance-cell"><span className="finance-cell-main">{value}</span><span className="finance-cell-sub">{row.class_label || '—'} · {row.currency}{row.fund_deleted && ' · 基金已删除'}{row.class_deleted && ' · 份额已停用'}</span></div> },
+        numColumn({ title: '持有份额', dataIndex: 'units', width: 140 }),
+        numColumn({ title: '最新净值', dataIndex: 'nav_per_unit', width: 170, render: (value, row) => value === null || value === undefined ? <Tag color="warning" bordered={false}>缺少净值</Tag> : <div className="finance-cell" style={{ alignItems: 'flex-end' }}><Num value={value} /><span className="finance-cell-sub finance-date">{row.nav_date}</span></div> }),
+        numColumn({ title: '持有市值', dataIndex: 'market_value', width: 190, render: (value, row) => value === null ? <span className="finance-num is-empty">—</span> : <Num value={new Decimal(value).toFixed(2)} suffix={row.currency} /> }),
+        { title: '操作', width: 80, render: (_, row) => <Button type="link" size="small" disabled={!canWrite || row.fund_deleted || row.entity_deleted || row.class_deleted || !new Decimal(row.units).gt('0')} onClick={() => { tradeForm.resetFields(); tradeForm.setFieldsValue({ entity_id: row.entity_id, share_class_id: row.share_class_id, currency: row.currency, transaction_type: '赎回', confirmation_date: new Date().toISOString().slice(0, 10) }); open('trade'); }}>赎回</Button> },
+      ]} />
     </Card> },
   ];
   tabs.push({ key: 'benchmarks', label: '基准', children: <Card title="基准定义与数值" extra={<Space>
     <Button disabled={!canWrite} onClick={() => { benchmarkValueForm.resetFields(); open('benchmarkValue'); }}>录入基准数值</Button>
     <Button type="primary" disabled={!canWrite} onClick={() => { benchmarkForm.resetFields(); open('benchmark'); }}>新建基准</Button>
   </Space>}><Text type="secondary">基准分类手工填写。修改覆盖当前定义，不生成基金资料版本。</Text>
-    {businessTable('benchmarks', '基准定义', [{ title: '基准名称', dataIndex: 'name', render: (text, row) => <Button type="link" onClick={() => { benchmarkForm.resetFields(); benchmarkForm.setFieldsValue(pick('benchmarks', row)); open('benchmark'); setEditing(row); }}>{text}</Button> }, { title: '分类', dataIndex: 'category' }, { title: '备注', dataIndex: 'remarks' }])}
-    <Title level={4}>日期数值</Title>{businessTable('benchmark_values', '基准数值', [{ title: '基准', dataIndex: '_benchmark_name' }, { title: '日期', dataIndex: 'value_date' }, { title: '数值', dataIndex: 'index_value' }, { title:'操作',render:(_,row)=><Button type="link" danger disabled={!canWrite} onClick={()=>removeSeries('benchmark',row)}>删除</Button> }], [{ key: 'benchmark_id', label: '基准', resource: 'benchmarks' }, ...dateControls])}
+    <Title level={5} className="finance-section-title">基准定义</Title>
+    {businessTable('benchmarks', '基准定义', [{ title: '基准名称', dataIndex: 'name', width: 300, render: (text, row) => <Button className="finance-text-link" type="link" onClick={() => { benchmarkForm.resetFields(); benchmarkForm.setFieldsValue(pick('benchmarks', row)); open('benchmark'); setEditing(row); }}>{text}</Button> }, { title: '分类', dataIndex: 'category', width: 160, render: value => value ? <Tag bordered={false}>{value}</Tag> : '—' }, { title: '备注', dataIndex: 'remarks', render: value => value || '—' }])}
+    <Title level={5} className="finance-section-title">日期数值</Title>
+    {businessTable('benchmark_values', '基准数值', [{ title: '基准', dataIndex: '_benchmark_name' }, { title: '日期', dataIndex: 'value_date', width: 120, render: value => <DateText value={value} /> }, numColumn({ title: '数值', dataIndex: 'index_value', width: 200 }), { title:'操作', width: 80, render:(_,row)=><Button type="link" size="small" danger disabled={!canWrite} onClick={()=>removeSeries('benchmark',row)}>删除</Button> }], [{ key: 'benchmark_id', label: '基准', resource: 'benchmarks' }, ...dateControls])}
   </Card> });
   tabs.push({ key: 'documents', label: '文档', children: <FileWorkspace metadata={metadata} fundId={documentFundId} setFundId={setDocumentFundId} active={active === 'documents'} /> });
   tabs.push({ key: 'export', label: '数据导出', children: <ExportWorkspace /> });
@@ -330,26 +378,37 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
   tabs.unshift({ key: 'funds', label: '基金中心', children: <FundCenter fundId={fundId} section={fundSection} selectedShare={route.get('share')} openFund={openFund} date={date} setDate={setDate} refresh={refresh} active={active === 'funds'} metadata={metadata} editFund={editFund} newFund={newFund} enterNav={enterNav} read={read} fields={tableFields}
     versions={async row => { setVersions(await read('versions', { fund_id: row.id })); setDialog('versions'); }}
     classes={async row => { const aggregate = await read('fund', { id: row.id }); setEditing({ ...aggregate.fund, all_classes: aggregate.share_classes }); setDialog('classes'); }} /> });
-  tabs.unshift({ key: 'home', label: '工作台', children: <Workbench date={date} setDate={setDate} refresh={refresh} active={active === 'home'} summary={summary} openFund={openFund} navigate={setActive} canWrite={canWrite} canConfigure={metadata?.permissions?.configure}
+  tabs.unshift({ key: 'home', label: '工作台', children: <Workbench date={date} setDate={setDate} refresh={refresh} active={active === 'home'} summary={summary} openFund={openFund} navigate={setActive} openQuality={category => navigate({ page: 'quality', category })} canWrite={canWrite} canConfigure={metadata?.permissions?.configure}
     resolve={issue => resolveIssue(issue).catch(error => setError(error.message))} openBatch={row => openIssueSource({ source_batch_id: row.id, context: {} }).catch(error => setError(error.message))} /> });
-  tabs.push({ key: 'settings', label: '系统设置', children: <Card title="系统设置"><Text type="secondary">业务规则与平台管理集中在这里。修改权限由服务端检查。</Text><div className="finance-settings-grid">
-    {metadata?.permissions?.configure && <Card size="small" title="字段候选项"><p>维护已确认的业务候选值。</p><Button onClick={() => setActive('options')}>打开配置</Button></Card>}
-    <Card size="small" title="基金资料管理"><p>查看全部记录、资料版本，删除或恢复基金。</p><Button onClick={() => setActive('fund-register')}>管理基金</Button></Card>
-    <Card size="small" title="基准数据"><p>维护基准定义与日期数值。</p><Button onClick={() => setActive('benchmarks')}>管理基准</Button></Card>
-    <Card size="small" title="平台设置"><p>角色权限、插件与主题在平台设置中维护。</p><Button href="/admin/settings" target="_blank" rel="noopener noreferrer">打开平台设置 ↗</Button></Card>
-  </div></Card> });
+  const pendingOptions = (metadata?.options || []).filter(row => !row.fixed && !row.confirmed).length;
+  tabs.push({ key: 'settings', label: '系统设置', children: <div data-finance-settings>
+    <PageIntro description="业务规则与平台管理集中在这里。修改权限由服务端检查。" />
+    <div className="finance-stats">
+      <StatCard label="基金记录" value={summary.funds} unit="只" hint="含已删除基金" icon={<FundOutlined />} />
+      <StatCard label="投资主体" value={summary.investment_entities} unit="个" hint="含历史停用记录" icon={<TeamOutlined />} />
+      <StatCard label="待确认候选项" value={metadata ? pendingOptions : undefined} unit="项" tone={pendingOptions ? 'warning' : 'success'} hint={pendingOptions ? '正式录入前需业务确认' : '候选项均已明确'} icon={<UnorderedListOutlined />} onClick={metadata?.permissions?.configure ? () => setActive('options') : undefined} />
+    </div>
+    <div className="finance-link-grid">
+      {metadata?.permissions?.configure && <button type="button" className="finance-link-card" onClick={() => setActive('options')}><span className="finance-link-card-icon"><UnorderedListOutlined /></span><div><strong>字段候选配置</strong><span>维护下拉字段的候选值，并标记是否已由业务确认。</span></div></button>}
+      <button type="button" className="finance-link-card" onClick={() => setActive('fund-register')}><span className="finance-link-card-icon"><DatabaseOutlined /></span><div><strong>基金资料管理</strong><span>查看全部基金记录与资料版本，删除或恢复基金、停用份额。</span></div></button>
+      <button type="button" className="finance-link-card" onClick={() => setActive('benchmarks')}><span className="finance-link-card-icon"><LineChartOutlined /></span><div><strong>基准数据</strong><span>维护基准定义与按日期记录的基准数值。</span></div></button>
+      <a className="finance-link-card" href="/admin/settings" target="_blank" rel="noopener noreferrer"><span className="finance-link-card-icon"><SettingOutlined /></span><div><strong>平台设置 ↗</strong><span>角色权限、插件与主题在 NocoBase 平台设置中维护，新标签页打开。</span></div></a>
+    </div>
+  </div> });
   const menu = [{ key: 'home', label: '工作台', icon: <AppstoreOutlined /> }, { key: 'funds', label: '基金中心', icon: <FundOutlined /> }, { key: 'entities', label: '客户中心', icon: <TeamOutlined /> }, { key: 'trades', label: '交易录入', icon: <SwapOutlined /> }, { key: 'imports', label: '导入中心', icon: <ImportOutlined /> }, { key: 'quality', label: '数据质量', icon: <CheckCircleOutlined /> }, { key: 'settings', label: '系统设置', icon: <SettingOutlined /> }];
   const group = ['series', 'documents', 'compositions'].includes(active) ? 'funds' : active === 'positions' ? 'entities' : ['options', 'benchmarks', 'fund-register'].includes(active) ? 'settings' : active;
   const pageTitle = (embeddedPage && navigation.find(item => item.key === embeddedPage)?.title) || menu.find(item => item.key === group)?.label || tabs.find(item => item.key === active)?.label || '工作台';
   useEffect(() => { document.title = `${pageTitle} · Finance`; }, [pageTitle]);
-  return <OptionsContext.Provider value={metadata?.options || []}><main className={`finance-workspace${embeddedPage ? ' finance-workspace-native' : ''}`} style={{ '--finance-primary': token.colorPrimary, '--finance-primary-bg': token.colorPrimaryBg, '--finance-bg': token.colorBgLayout, '--finance-panel': token.colorBgContainer, '--finance-border': token.colorBorderSecondary, '--finance-text': token.colorText, '--finance-muted': token.colorTextSecondary, '--finance-radius': `${token.borderRadiusLG}px` } as React.CSSProperties}>
+  return <OptionsContext.Provider value={metadata?.options || []}><main className={`finance-workspace${embeddedPage ? ' finance-workspace-native' : ''}`} style={{ '--finance-primary': token.colorPrimary, '--finance-primary-bg': token.colorPrimaryBg, '--finance-bg': token.colorBgLayout, '--finance-panel': token.colorBgContainer, '--finance-border': token.colorBorderSecondary, '--finance-text': token.colorText, '--finance-muted': token.colorTextSecondary, '--finance-radius': `${token.borderRadiusLG}px`, '--finance-warning': token.colorWarning, '--finance-warning-bg': token.colorWarningBg, '--finance-error': token.colorError, '--finance-error-bg': token.colorErrorBg, '--finance-success': token.colorSuccess, '--finance-success-bg': token.colorSuccessBg } as React.CSSProperties}>
     {!embeddedPage && <aside className="finance-sidebar"><Button type="text" className="finance-brand" onClick={() => setActive('home')}><span>F</span> FINANCE</Button><Text className="finance-sidebar-caption" type="secondary">业务数据工作空间</Text>
       <nav aria-label="Finance 主导航">{menu.map(item => <Button key={item.key} className={group === item.key ? 'is-active' : ''} type="text" icon={item.icon} aria-current={group === item.key ? 'page' : undefined} onClick={() => setActive(item.key)}>{item.label}</Button>)}</nav>
       <div className="finance-sidebar-tools"><Text type="secondary">数据工具</Text><Button type="text" onClick={() => setActive('drafts')}>个人草稿</Button><Button type="text" onClick={() => setActive('series')}>全量净值与收益</Button><Button type="text" onClick={() => setActive('export')}>数据导出</Button></div>
     </aside>}
     <div className="finance-main">{!embeddedPage && <header className="finance-topbar"><Space><Button type="link" onClick={() => setActive('home')}>工作台</Button><Text type="secondary">/</Text><Text>{pageTitle}</Text></Space><Space>{!canWrite && <Tag>只读</Tag>}{demo && <Tag color="gold">模拟数据环境</Tag>}<Text type="secondary">数据录入 · 流程样稿</Text></Space></header>}
     <div className="finance-content">
-      {demo && <div className="finance-demo-note">当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。</div>}
+      {demo && (embeddedPage
+        ? <div className="finance-demo-banner"><Tag color="gold" bordered={false}>模拟数据</Tag>当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。{!canWrite && <Tag bordered={false}>只读</Tag>}</div>
+        : <div className="finance-demo-note">当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。</div>)}
       {error && !dialog && <Alert closable onClose={() => setError('')} type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
       {!embeddedPage && group === 'entities' && <div className="finance-subnav"><Button type={active === 'entities' ? 'primary' : 'default'} onClick={() => setActive('entities')}>客户与主体</Button><Button type={active === 'positions' ? 'primary' : 'default'} onClick={() => setActive('positions')}>持仓核对</Button></div>}
       {embeddedPage === 'options' && metadata && !metadata.permissions?.configure ? <Alert type="warning" message="当前角色没有业务配置权限" /> : <Tabs className="finance-page-panels" activeKey={tabs.some(tab => tab.key === active) ? active : 'home'} renderTabBar={() => <></>} items={tabs} />}

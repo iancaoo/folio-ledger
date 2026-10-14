@@ -10,6 +10,8 @@ import { RemoteSelect } from './RemoteSelect';
 import { exchangeMapping, exportColumns } from '../shared/export';
 import { MainExchangeMapping, inspectExchangeRow, confirmClientRename } from './MainExchangeControls';
 import { IMPORT_PARSER_VERSION } from '../shared/import-file';
+import { DownloadOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { BatchStatus } from './ui';
 type PreviewRow = { id: string; source_row: number; raw: Record<string, string>; corrected: Record<string, string>; selected: boolean;
   operation?: string; errors: Array<{ code: string; message: string }>; normalized?: any };
 
@@ -119,7 +121,7 @@ export function ImportWorkspace({ save, target }: { save: (action: string, paylo
   const parserOutdated = batch && ['staged', 'ready', 'needs_correction'].includes(batch.status) && batch.context.parser_version !== IMPORT_PARSER_VERSION;
   const labels = { awaiting_file: '等待原文件', parsing: '正在解析', staged: '等待映射', ready: '可提交', needs_correction: '需要修正', committed: '已提交', failed: '解析失败', cancelled: '已取消' };
   return <Card title="文件导入" extra={batch && <Space><Button disabled={busy} onClick={() => void openBatch(batch.id)}>刷新批次</Button><Button onClick={() => void downloadOriginal()}>下载原文件</Button>{!['committed', 'cancelled'].includes(batch.status) && <Button danger disabled={busy} onClick={() => Modal.confirm({ title: '取消当前导入批次？', content: '尚未提交的业务数据不会生效，原文件和行记录仍保留。已经完成的提交不能取消。', okText: '取消批次', cancelText: '返回', onOk: () => run('cancelImport', { batch_id: batch.id, technical_revision: batch.technical_revision }) })}>取消批次</Button>}<Button disabled={busy} onClick={() => { setResult(undefined); setFile(undefined); setMapping({}); setEdits({}); void loadHistory(); }}>开始新批次</Button></Space>}>
-    <Typography.Paragraph type="secondary">上传后先核对，不会直接写入业务数据。只读取首工作表，首行为表头。修正错误或明确取消选择后，一次提交所有选中行。</Typography.Paragraph>
+    <Typography.Paragraph type="secondary">流程：暂存 → 映射列 → 修正错误或取消选择 → 预览 → 一次提交所有选中行。任何一行保存失败都会整批回滚。</Typography.Paragraph>
     {fileError && <Alert type="error" message={fileError} style={{ marginBottom: 12 }} />}
     {batch?.context.exchange && <Alert type="info" showIcon message="已识别 Finance 交换文件" description={isExchange ? '固定映射已有业务表；只修改选中记录，ID 和固定关联保留。基金按组保存一个资料版本。成分修改需核对完整差异；文档仅修改分类。' : batch.data_type === 'transactions' ? '字段映射和比例费率已固定；\\N 表示空值。保留交易 ID，修改后仍是原交易；已撤销记录仅核对，不恢复。只读字段不写入业务事实。' : '字段映射和比例口径已固定；\\N 表示空值。请保留 ID，不能用修改日期或对象的方式创建另一条记录。只读字段仅用于核对。'} style={{ marginBottom: 12 }} />}
     {!batch ? <><Form layout="vertical" form={form} initialValues={{ data_type: 'nav', fund_kind: 'third_party', target_mode: 'single' }} onFinish={async values => {
@@ -127,19 +129,35 @@ export function ImportWorkspace({ save, target }: { save: (action: string, paylo
       const reader = new FileReader();
       reader.onload = () => run('stageImport', { data_type: values.data_type, ...(seriesImportTypes.includes(values.data_type) ? { target_mode: values.target_mode || 'single', ...(values.target_mode === 'columns' ? {} : values.data_type === 'benchmark' ? { benchmark_id: values.benchmark_id } : { share_class_id: values.share_class_id }) } : values.data_type === 'funds' ? { fund_kind: values.fund_kind } : {}), original_name: file.name, content_base64: String(reader.result).split(',')[1] }).catch(() => {});
       reader.readAsDataURL(file);
-    }} style={{ maxWidth: 650 }}>
-      <Form.Item name="data_type" label="导入类型" rules={[{ required: true }]}><Select options={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))} /></Form.Item>
-      {importType === 'funds' && <Form.Item name="fund_kind" label="基金类型" rules={[{ required: true }]}><Select options={[{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }]} /></Form.Item>}
-      {importType === 'exchange' ? <Alert type="info" message="上传从数据导出页下载的业务 Excel，系统自动识别业务表。持仓是只读结果，不能导入。文件需保留 Finance交换信息 工作表。" /> : mainImportTypes.includes(importType) ? <><Alert type="info" message="空白保留已有值，#清空 清空选填项。基金先按组汇总，每次保存只增加一个完整版本。" /><Button style={{ margin: '12px 0' }} onClick={() => void downloadMainTemplate()}>下载主数据模板及参考</Button></> : importType === 'transactions' ? <><Alert type="info" message="每行使用主体 ID 和 ISIN；交易 ID 留空为新增，填写已有 ID 为修改。" /><Button style={{ margin: '12px 0' }} onClick={() => void downloadTemplate()}>下载交易模板（含主体与份额参考）</Button></> : <><Form.Item name="target_mode" label="对象识别方式" rules={[{ required: true }]}><Select options={[{ value: 'single', label: '整份文件使用一个对象' }, { value: 'columns', label: '每行通过标识列识别对象' }]} /></Form.Item>
-        {targetMode === 'single' ? importType === 'benchmark' ? <Form.Item name="benchmark_id" label="导入到基准" rules={[{ required: true }]}><RemoteSelect resource="benchmarks" /></Form.Item> : <Form.Item name="share_class_id" label="导入到基金份额" rules={[{ required: true }]}><RemoteSelect resource="share_classes" params={importType === 'returns' ? { fund_kind: 'third_party' } : {}} /></Form.Item> : <Alert type="info" message={importType === 'benchmark' ? '每行使用基准 ID，不按名称匹配。' : '每行使用已有 ISIN；可在一份文件录入多个份额。'} />}
-        <Button style={{ margin: '12px 0' }} onClick={() => void downloadSeriesTemplate()}>下载时序模板及对象参考</Button></>}
-      <Form.Item label="原始文件" required><Upload accept=".xlsx,.xls,.csv" maxCount={1} beforeUpload={value => { setFile(value); setFileError(''); return false; }} onRemove={() => setFile(undefined)}><Button>选择 xlsx／xls／CSV</Button></Upload>{fileError && <TextError text={fileError} />}</Form.Item>
-      <Button type="primary" htmlType="submit" loading={busy}>读取文件并暂存</Button>
-    </Form><Typography.Title level={4}>我的导入批次</Typography.Title><Button onClick={() => void loadHistory()}>刷新批次列表</Button><Table<Record<string, any>> rowKey="id" dataSource={history.rows} pagination={{ current: historyPage, total: history.count, pageSize: 10, onChange: setHistoryPage, showSizeChanger: false }} columns={[
-      { title: '原文件', dataIndex: 'original_name' }, { title: '类型', dataIndex: 'data_type', render: value => typeLabels[value] || value },
-      { title: '状态', dataIndex: 'status', render: value => labels[value] || value }, { title: '创建时间', dataIndex: 'created_at', render: value => new Date(value).toLocaleString('zh-CN') },
-      { title: '操作', render: (_, row) => <Button onClick={() => void openBatch(row.id)}>打开批次</Button> },
-    ]} /></> : <>
+    }}>
+      <div className="finance-panel finance-import-form"><div className="finance-steps">
+        <div className="finance-step"><span className="finance-step-index">1</span><div><div className="finance-step-title">选择导入内容</div>
+          <Space wrap align="start" size={[16, 0]}>
+            <Form.Item name="data_type" label="导入类型" rules={[{ required: true }]} style={{ width: 300 }}><Select options={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))} /></Form.Item>
+            {importType === 'funds' && <Form.Item name="fund_kind" label="基金类型" rules={[{ required: true }]} style={{ width: 200 }}><Select options={[{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }]} /></Form.Item>}
+            {seriesImportTypes.includes(importType) && <Form.Item name="target_mode" label="对象识别方式" rules={[{ required: true }]} style={{ width: 260 }}><Select options={[{ value: 'single', label: '整份文件使用一个对象' }, { value: 'columns', label: '每行通过标识列识别对象' }]} /></Form.Item>}
+            {seriesImportTypes.includes(importType) && targetMode === 'single' && (importType === 'benchmark' ? <Form.Item name="benchmark_id" label="导入到基准" rules={[{ required: true }]} style={{ width: 320 }}><RemoteSelect resource="benchmarks" /></Form.Item> : <Form.Item name="share_class_id" label="导入到基金份额" rules={[{ required: true }]} style={{ width: 320 }}><RemoteSelect resource="share_classes" params={importType === 'returns' ? { fund_kind: 'third_party' } : {}} /></Form.Item>)}
+          </Space></div></div>
+        <div className="finance-step"><span className="finance-step-index">2</span><div><div className="finance-step-title">{importType === 'exchange' ? '准备交换文件' : '下载模板并填写'}</div>
+          {importType === 'exchange' ? <Alert type="info" message="上传从数据导出页下载的业务 Excel，系统自动识别业务表。持仓是只读结果，不能导入。文件需保留 Finance交换信息 工作表。" />
+            : <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Alert type="info" message={mainImportTypes.includes(importType) ? '空白保留已有值，#清空 清空选填项。基金先按组汇总，每次保存只增加一个完整版本。' : importType === 'transactions' ? '每行使用主体 ID 和 ISIN；交易 ID 留空为新增，填写已有 ID 为修改。' : targetMode === 'single' ? '整份文件写入上面选择的对象，每行一个日期。' : importType === 'benchmark' ? '每行使用基准 ID，不按名称匹配。' : '每行使用已有 ISIN；可在一份文件录入多个份额。'} />
+              <div>{mainImportTypes.includes(importType) ? <Button icon={<DownloadOutlined />} onClick={() => void downloadMainTemplate()}>下载主数据模板及参考</Button> : importType === 'transactions' ? <Button icon={<DownloadOutlined />} onClick={() => void downloadTemplate()}>下载交易模板（含主体与份额参考）</Button> : <Button icon={<DownloadOutlined />} onClick={() => void downloadSeriesTemplate()}>下载时序模板及对象参考</Button>}</div>
+            </Space>}
+        </div></div>
+        <div className="finance-step"><span className="finance-step-index">3</span><div><div className="finance-step-title">上传文件并暂存核对</div>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>暂存后先核对，不会直接写入业务数据。只读取首工作表，首行为表头。</Typography.Paragraph>
+          <Form.Item label="原始文件" required><Upload accept=".xlsx,.xls,.csv" maxCount={1} beforeUpload={value => { setFile(value); setFileError(''); return false; }} onRemove={() => setFile(undefined)}><Button icon={<UploadOutlined />}>选择 xlsx／xls／CSV</Button></Upload>{fileError && <TextError text={fileError} />}</Form.Item>
+          <Button type="primary" htmlType="submit" loading={busy}>读取文件并暂存</Button>
+        </div></div>
+      </div></div>
+    </Form>
+    <div className="finance-toolbar" style={{ marginTop: 20 }}><Typography.Title level={5} style={{ margin: 0 }}>我的导入批次</Typography.Title><div className="finance-toolbar-meta"><Typography.Text type="secondary">共 {history.count ?? 0} 个批次</Typography.Text><Button icon={<ReloadOutlined />} onClick={() => void loadHistory()}>刷新批次列表</Button></div></div>
+    <Table<Record<string, any>> className="finance-table" rowKey="id" size="middle" dataSource={history.rows} pagination={{ current: historyPage, total: history.count, pageSize: 10, onChange: setHistoryPage, showSizeChanger: false }} columns={[
+      { title: '原文件', dataIndex: 'original_name' }, { title: '类型', dataIndex: 'data_type', width: 200, render: value => typeLabels[value] || value },
+      { title: '状态', dataIndex: 'status', width: 110, render: value => <BatchStatus value={value} labels={labels} /> }, { title: '创建时间', dataIndex: 'created_at', width: 190, render: value => <span className="finance-date">{new Date(value).toLocaleString('zh-CN')}</span> },
+      { title: '操作', width: 110, render: (_, row) => <Button size="small" onClick={() => void openBatch(row.id)}>打开批次</Button> },
+    ]} locale={{ emptyText: '还没有导入批次' }} /></> : <>
       <Space wrap style={{ marginBottom: 16 }}><Typography.Text strong>{batch.original_name}</Typography.Text><Tag>{batch.context.sheet_name}</Tag><Tag color={batch.status === 'committed' ? 'green' : 'blue'}>{labels[batch.status] || batch.status}</Tag><Typography.Text type="secondary">{result.rows.length} 条记录</Typography.Text></Space>
       {batch.context.ignored_sheets.length > 0 && <Alert type="info" message={`以下工作表未作为业务数据导入：${batch.context.ignored_sheets.join('、')}`} />}
       {batch.context.diagnostics?.notes?.map(note => <Alert key={note} type="info" message={note} style={{ marginBottom: 8 }} />)}

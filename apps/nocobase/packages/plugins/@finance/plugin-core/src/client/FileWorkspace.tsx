@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { RemoteSelect } from './RemoteSelect';
-import { Alert, Button, Card, Form, Modal, Select, Space, Table, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Empty, Form, Modal, Select, Space, Table, Tag, Typography, Upload, message } from 'antd';
+import { FileOutlined } from '@ant-design/icons';
 
 const encode = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
@@ -78,7 +79,7 @@ export function FileWorkspace({ metadata, fundId, setFundId, active }: any) {
         if (result.status === 'complete') setFile(undefined);
       } catch {}
     }}>
-      <Form.Item label="文档所属基金" required><RemoteSelect aria-label="文档所属基金" resource="funds" params={{ state: 'all' }} value={fundId} onChange={setFundId} onRecord={setFund} placeholder="选择基金查看文档" /></Form.Item>
+      <Form.Item label="文档所属基金" required><RemoteSelect aria-label="文档所属基金" resource="funds" params={{ state: 'all' }} value={fundId} onChange={setFundId} onRecord={setFund} placeholder="选择基金查看文档" style={{ maxWidth: 480 }} /></Form.Item>
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
       {fundId && <>
         {fund?.is_deleted && <Alert type="info" message="基金已删除，文档仍可查看和删除。恢复基金后可继续上传。" style={{ marginBottom: 16 }} />}
@@ -89,13 +90,14 @@ export function FileWorkspace({ metadata, fundId, setFundId, active }: any) {
         </Space>}
       </>}
     </Form>
+    {!fundId && <Empty description="选择基金后查看和上传该基金的文档" />}
     {fundId && <>
       <Typography.Paragraph type="secondary">文档单独维护，不增加基金资料版本。下载需要登录并拥有 Finance 查看权限。</Typography.Paragraph>
-      <Table rowKey="id" dataSource={documents} pagination={{ pageSize: 10 }} columns={[
-        { title: '文件名', dataIndex: 'original_name' }, { title: '类型', dataIndex: 'document_type' },
-        { title: '大小', dataIndex: 'size_bytes', render: value => `${(Number(value) / 1024).toFixed(1)} KB` },
-        { title: '上传时间', dataIndex: 'uploaded_at', render: value => new Date(value).toLocaleString() },
-        { title: '状态', render: (_, row) => <Tag color={row.deleting ? 'orange' : 'green'}>{row.deleting ? '删除未完成' : '可用'}</Tag> },
+      <Table className="finance-table" rowKey="id" size="middle" dataSource={documents} pagination={{ pageSize: 10 }} columns={[
+        { title: '文件名', dataIndex: 'original_name', render: value => <span><FileOutlined style={{ marginRight: 6, opacity: 0.6 }} />{value}</span> }, { title: '类型', dataIndex: 'document_type', width: 160, render: value => <Tag bordered={false}>{(types?.values || []).find(row => row.code === value)?.label || value}</Tag> },
+        { title: '大小', dataIndex: 'size_bytes', width: 110, align: 'right', render: value => <span className="finance-num">{(Number(value) / 1024).toFixed(1)} KB</span> },
+        { title: '上传时间', dataIndex: 'uploaded_at', width: 190, render: value => <span className="finance-date">{new Date(value).toLocaleString('zh-CN')}</span> },
+        { title: '状态', width: 110, render: (_, row) => <Tag bordered={false} color={row.deleting ? 'warning' : 'success'}>{row.deleting ? '删除未完成' : '可用'}</Tag> },
         { title: '操作', render: (_, row) => <Space><Button type="link" disabled={row.deleting} onClick={() => void download(row)}>下载</Button><Button type="link" danger disabled={!canWrite || busy || row.deleting} onClick={() => Modal.confirm({ title: `删除文档“${row.original_name}”？`, content: `所属基金：${fund?.short_name}。文档和文件会永久删除；只有两者都清除后才会显示完成。`, okText: '确认删除', cancelText: '取消', onOk: () => mutate('deleteDocument', { id: row.id, technical_revision: row.technical_revision }) })}>删除</Button></Space> },
       ]} locale={{ emptyText: '该基金暂无文档' }} />
       <Typography.Title level={5}>我的最近文件任务</Typography.Title>

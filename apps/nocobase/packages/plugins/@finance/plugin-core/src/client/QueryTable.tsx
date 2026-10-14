@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
-import { Alert, Button, Input, Select, Space, Table } from 'antd';
+import { Alert, Button, Input, Select, Table, Tooltip, Typography } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import { RemoteSelect } from './RemoteSelect';
 
-export function QueryTable({ table, action = 'list', columns, refresh, controls = [], initial = {}, fixed = {}, title, rowKey = 'id' }: any) {
+const prefix = (label: string) => <span className="finance-prefix">{label}</span>;
+
+export function QueryTable({ table, action = 'list', columns, refresh, controls = [], initial = {}, fixed = {}, title, rowKey = 'id', searchPlaceholder = '搜索名称、ISIN 或客户编号' }: any) {
   const api = useAPIClient();
   const [query, setQuery] = useState<any>({ ...initial, page: 1, page_size: 10 });
   const [result, setResult] = useState<any>({ rows: [], count: 0 }); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
@@ -19,14 +22,23 @@ export function QueryTable({ table, action = 'list', columns, refresh, controls 
     return () => { current = false; };
   }, [table, action, key, refresh, retry]);
   const change = (name, value) => setQuery(old => ({ ...old, [name]: value || undefined, page: 1 }));
-  return <div data-finance-table={table || action}>
-    <Space wrap size={[12, 12]} style={{ margin: '12px 0' }} align="end">
-      <Input.Search aria-label={`${title}搜索`} placeholder="搜索名称、ISIN 或客户编号" allowClear style={{ width: 270 }} onSearch={value => change('search', value)} />
-      {controls.map(control => <div key={control.key}><div style={{ marginBottom: 4 }}>{control.label}</div>{control.resource ? <RemoteSelect aria-label={`${title}${control.label}`} resource={control.resource} params={control.params} allowClear value={query[control.key]} onChange={value => change(control.key, value)} style={{ width: 235 }} /> : control.type === 'date' ? <Input aria-label={`${title}${control.label}`} type="date" value={query[control.key] || ''} onChange={event => change(control.key, event.target.value)} /> : control.type === 'text' ? <Input.Search aria-label={`${title}${control.label}`} style={{ width: 130 }} allowClear onSearch={value => change(control.key, value)} /> : <Select aria-label={`${title}${control.label}`} allowClear style={{ minWidth: 120 }} value={query[control.key]} options={control.options} onChange={value => change(control.key, value)} />}</div>)}
-      <Button onClick={() => setRetry(value => value + 1)}>刷新列表</Button>
-    </Space>
-    {error && <Alert type="error" message={error} action={<Button onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
-    <Table rowKey={rowKey} size="middle" dataSource={result.rows} columns={columns} loading={loading} scroll={{ x: 900 }} pagination={{ current: query.page, pageSize: query.page_size, total: result.count, showSizeChanger: true, pageSizeOptions: [10,20,50,100], showTotal: count => `共 ${count} 条`, onChange: (page, page_size) => setQuery(old => ({ ...old, page: page_size !== old.page_size ? 1 : page, page_size })) }} locale={{ emptyText: error ? '读取失败' : '暂无匹配记录' }} />
+  return <div className="finance-query" data-finance-table={table || action}>
+    <div className="finance-toolbar">
+      <div className="finance-toolbar-filters">
+        <Input.Search aria-label={`${title}搜索`} placeholder={searchPlaceholder} allowClear style={{ width: 260 }} onSearch={value => change('search', value)} />
+        {controls.map(control => <React.Fragment key={control.key}>{control.resource
+          ? <RemoteSelect aria-label={`${title}${control.label}`} prefix={prefix(control.label)} placeholder="全部" resource={control.resource} params={control.params} allowClear value={query[control.key]} onChange={value => change(control.key, value)} style={{ width: 250 }} />
+          : control.type === 'date' ? <Input aria-label={`${title}${control.label}`} prefix={prefix(control.label)} type="date" value={query[control.key] || ''} onChange={event => change(control.key, event.target.value)} style={{ width: 210 }} />
+          : control.type === 'text' ? <Input.Search aria-label={`${title}${control.label}`} placeholder={control.label} style={{ width: 130 }} allowClear onSearch={value => change(control.key, value)} />
+          : <Select aria-label={`${title}${control.label}`} prefix={prefix(control.label)} placeholder="全部" allowClear style={{ minWidth: 140 }} value={query[control.key]} options={control.options} onChange={value => change(control.key, value)} />}</React.Fragment>)}
+      </div>
+      <div className="finance-toolbar-meta">
+        <Typography.Text type="secondary">共 {result.count ?? 0} 条</Typography.Text>
+        <Tooltip title="刷新列表"><Button aria-label="刷新列表" icon={<ReloadOutlined />} onClick={() => setRetry(value => value + 1)} /></Tooltip>
+      </div>
+    </div>
+    {error && <Alert type="error" showIcon message={error} action={<Button size="small" onClick={() => setRetry(value => value + 1)}>重试</Button>} style={{ marginBottom: 12 }} />}
+    <Table className="finance-table" rowKey={rowKey} size="middle" dataSource={result.rows} columns={columns} loading={loading} scroll={{ x: 900 }} pagination={{ current: query.page, pageSize: query.page_size, total: result.count, showSizeChanger: true, pageSizeOptions: [10, 20, 50, 100], showTotal: count => `共 ${count} 条`, onChange: (page, page_size) => setQuery(old => ({ ...old, page: page_size !== old.page_size ? 1 : page, page_size })) }} locale={{ emptyText: error ? '读取失败' : '暂无匹配记录' }} />
   </div>;
 }
 export const stateControl = (inactive = '已删除') => ({ key: 'state', label: '状态', options: [{ value: 'all', label: '全部' }, { value: 'active', label: '有效' }, { value: 'inactive', label: inactive }] });
