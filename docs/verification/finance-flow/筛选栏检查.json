@@ -1,0 +1,297 @@
+{
+  "date": "2026-10-14",
+  "sharedQueryTable": [
+    {
+      "page": "客户中心",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 355,
+              "top": 327
+            },
+            {
+              "bottom": 355,
+              "top": 301
+            },
+            {
+              "bottom": 355,
+              "top": 327
+            }
+          ],
+          "table": "investment_entities"
+        }
+      ]
+    },
+    {
+      "page": "持仓核对",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 357,
+              "top": 329
+            },
+            {
+              "bottom": 357,
+              "top": 303
+            },
+            {
+              "bottom": 357,
+              "top": 303
+            },
+            {
+              "bottom": 357,
+              "top": 301
+            },
+            {
+              "bottom": 357,
+              "top": 303
+            },
+            {
+              "bottom": 357,
+              "top": 329
+            }
+          ],
+          "table": "positionList"
+        }
+      ]
+    },
+    {
+      "page": "交易录入",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 311,
+              "top": 283
+            },
+            {
+              "bottom": 311,
+              "top": 257
+            },
+            {
+              "bottom": 311,
+              "top": 257
+            },
+            {
+              "bottom": 311,
+              "top": 257
+            },
+            {
+              "bottom": 311,
+              "top": 255
+            },
+            {
+              "bottom": 311,
+              "top": 255
+            },
+            {
+              "bottom": 311,
+              "top": 283
+            }
+          ],
+          "table": "transactions"
+        }
+      ]
+    },
+    {
+      "page": "全量净值",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 335,
+              "top": 307
+            },
+            {
+              "bottom": 335,
+              "top": 281
+            },
+            {
+              "bottom": 335,
+              "top": 279
+            },
+            {
+              "bottom": 335,
+              "top": 279
+            },
+            {
+              "bottom": 335,
+              "top": 307
+            }
+          ],
+          "table": "fund_navs"
+        }
+      ]
+    },
+    {
+      "page": "MTD 收益",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 335,
+              "top": 307
+            },
+            {
+              "bottom": 335,
+              "top": 281
+            },
+            {
+              "bottom": 335,
+              "top": 281
+            },
+            {
+              "bottom": 335,
+              "top": 279
+            },
+            {
+              "bottom": 335,
+              "top": 279
+            },
+            {
+              "bottom": 335,
+              "top": 307
+            }
+          ],
+          "table": "fund_returns"
+        }
+      ]
+    },
+    {
+      "page": "个人草稿",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 372,
+              "top": 344
+            },
+            {
+              "bottom": 372,
+              "top": 318
+            },
+            {
+              "bottom": 372,
+              "top": 344
+            }
+          ],
+          "table": "drafts"
+        }
+      ]
+    },
+    {
+      "page": "基金资料管理",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 287,
+              "top": 259
+            },
+            {
+              "bottom": 287,
+              "top": 233
+            },
+            {
+              "bottom": 287,
+              "top": 233
+            },
+            {
+              "bottom": 287,
+              "top": 259
+            }
+          ],
+          "table": "funds"
+        }
+      ]
+    },
+    {
+      "page": "基准定义与数值",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 283,
+              "top": 255
+            },
+            {
+              "bottom": 283,
+              "top": 255
+            }
+          ],
+          "table": "benchmarks"
+        },
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 920,
+              "top": 892
+            },
+            {
+              "bottom": 920,
+              "top": 866
+            },
+            {
+              "bottom": 920,
+              "top": 864
+            },
+            {
+              "bottom": 920,
+              "top": 864
+            },
+            {
+              "bottom": 920,
+              "top": 892
+            }
+          ],
+          "table": "benchmark_values"
+        }
+      ]
+    },
+    {
+      "page": "基金中心历史净值",
+      "layout": [
+        {
+          "align": "flex-end",
+          "items": [
+            {
+              "bottom": 891,
+              "top": 863
+            },
+            {
+              "bottom": 891,
+              "top": 835
+            },
+            {
+              "bottom": 891,
+              "top": 835
+            },
+            {
+              "bottom": 891,
+              "top": 863
+            }
+          ],
+          "table": "fund_navs"
+        }
+      ]
+    }
+  ],
+  "otherPages": {
+    "quality": "已查看，原本为底部对齐",
+    "export": "已查看基金净值导出条件，标签和输入框对齐",
+    "imports": "已查看导入选择区，采用纵向布局"
+  },
+  "build": "passed",
+  "scope": "仅布局；未修改筛选或数据逻辑"
+}

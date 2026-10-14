@@ -1,0 +1,2136 @@
+{
+  "checked_at": "2026-10-13T18:45:23.166Z",
+  "source_rows": 161,
+  "mapping": [
+    {
+      "source_key": "三方基金页面:3",
+      "label": "ISIN code",
+      "table": "finance_share_classes",
+      "columns": [
+        {
+          "table": "finance_share_classes",
+          "name": "isin",
+          "logical_table": "share_classes"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:4",
+      "label": "LEI code",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "lei",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:5",
+      "label": "基金简称",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "short_name",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:6",
+      "label": "基金全称",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "full_name",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:7",
+      "label": "成立日期",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "inception_date",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:8",
+      "label": "到期日",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "maturity_date",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:9",
+      "label": "基金类型",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "structure_type",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:10",
+      "label": "币种",
+      "table": "finance_share_classes",
+      "columns": [
+        {
+          "table": "finance_share_classes",
+          "name": "currency",
+          "logical_table": "share_classes"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:11",
+      "label": "股份类别",
+      "table": "finance_share_classes",
+      "columns": [
+        {
+          "table": "finance_share_classes",
+          "name": "class_label",
+          "logical_table": "share_classes"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:12",
+      "label": "运行状态",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "operating_status",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:13",
+      "label": "基金规模",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "size_100m_usd",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:14",
+      "label": "申购开放日",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "subscription_frequency",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "subscription_day_rule",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:15",
+      "label": "赎回开放日",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "redemption_frequency",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "redemption_day_rule",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:16",
+      "label": "申购文件截止日期",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "document_cutoff_offset",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "document_cutoff_day_unit",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:17",
+      "label": "申购款截止日期",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "payment_cutoff_offset",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "payment_cutoff_day_unit",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:18",
+      "label": "赎回通知期",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "redemption_notice_offset",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "redemption_notice_day_unit",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:19",
+      "label": "赎回款到账时间",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "settlement_offset",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "settlement_day_unit",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:20",
+      "label": "最低初次申购金额",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_initial_amount",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_initial_currency",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:21",
+      "label": "最低追加申购金额",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_additional_amount",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_additional_currency",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:22",
+      "label": "最低赎回金额",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_redemption_amount",
+          "logical_table": "third_party_class_terms"
+        },
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "minimum_redemption_currency",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:23",
+      "label": "赎回金额限制",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "gate_raw",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:24",
+      "label": "追踪负责人",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "coverage_owner_user_id",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:25",
+      "label": "约会、业绩负责人",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "meeting_performance_owner",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:26",
+      "label": "Amrita Feeder",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "amrita_feeder_option",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:28",
+      "label": "基金策略",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "strategy",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:29",
+      "label": "基金策略详情",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "strategy_detail",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:30",
+      "label": "配置策略",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "allocation_role",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:31",
+      "label": "投资地区",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "investment_region",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:33",
+      "label": "申购费率",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "subscription_fee_text",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:34",
+      "label": "赎回费率",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "redemption_fee_text",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:35",
+      "label": "管理费率",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "management_fee_text",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:36",
+      "label": "业绩费率",
+      "table": "finance_third_party_class_terms",
+      "columns": [
+        {
+          "table": "finance_third_party_class_terms",
+          "name": "performance_fee_text",
+          "logical_table": "third_party_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:38",
+      "label": "管理人",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "investment_manager",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:39",
+      "label": "基金经理",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "portfolio_manager",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:40",
+      "label": "邮箱",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "investment_team_email",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:41",
+      "label": "电话",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "investment_team_phone",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:42",
+      "label": "投资者关系",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "investor_relations",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:43",
+      "label": "邮箱1",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "ir_email_1",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:44",
+      "label": "邮箱2",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "ir_email_2",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:45",
+      "label": "电话",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "ir_phone",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:46",
+      "label": "行政管理人",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "administrator",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:47",
+      "label": "邮箱1",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "administrator_email_1",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:48",
+      "label": "邮箱2",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "administrator_email_2",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:49",
+      "label": "电话",
+      "table": "finance_third_party_fund_details",
+      "columns": [
+        {
+          "table": "finance_third_party_fund_details",
+          "name": "administrator_phone",
+          "logical_table": "third_party_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:51",
+      "label": "国家/资产/策略/行业",
+      "handling": "定义缺失，Q05；不建立臆测字段",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "三方基金页面:53",
+      "label": "业绩表",
+      "handling": "已定义的 MTD 子集进入 fund_returns；完整业绩表定义留 Q05",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "三方基金页面:54",
+      "label": "近期点评",
+      "handling": "定义缺失，Q05；暂不开放录入",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "三方基金页面:56",
+      "label": "净值",
+      "handling": "界面入口 → fund_navs；不作为基金单值字段",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "三方基金页面:57",
+      "label": "文档",
+      "handling": "界面入口 → fund_documents",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "三方基金页面:59",
+      "label": "版本号",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "business_version",
+          "logical_table": "funds"
+        },
+        {
+          "table": "finance_fund_versions",
+          "name": "version_no",
+          "logical_table": "fund_versions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:60",
+      "label": "保存时间",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "saved_at",
+          "logical_table": "funds"
+        },
+        {
+          "table": "finance_fund_versions",
+          "name": "saved_at",
+          "logical_table": "fund_versions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "三方基金页面:61",
+      "label": "删除标记",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "is_deleted",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:3",
+      "label": "ISIN code",
+      "table": "finance_share_classes",
+      "columns": [
+        {
+          "table": "finance_share_classes",
+          "name": "isin",
+          "logical_table": "share_classes"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:4",
+      "label": "LEI code",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "lei",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:5",
+      "label": "基金简称",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "short_name",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:6",
+      "label": "基金全称",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "full_name",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:7",
+      "label": "成立日期",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "inception_date",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:8",
+      "label": "到期日",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "maturity_date",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:9",
+      "label": "产品级别",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "product_tier",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:10",
+      "label": "币种",
+      "table": "finance_share_classes",
+      "columns": [
+        {
+          "table": "finance_share_classes",
+          "name": "currency",
+          "logical_table": "share_classes"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:11",
+      "label": "运行状态",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "operating_status",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:12",
+      "label": "基金规模",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "size_100m_usd",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:13",
+      "label": "申购开放日",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "subscription_frequency",
+          "logical_table": "proprietary_class_terms"
+        },
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "subscription_day_rule",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:14",
+      "label": "赎回开放日",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "redemption_frequency",
+          "logical_table": "proprietary_class_terms"
+        },
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "redemption_day_rule",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:15",
+      "label": "申购文件截止日期",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "document_cutoff_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:16",
+      "label": "申购款截止日期",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "payment_cutoff_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:17",
+      "label": "赎回通知期",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "redemption_notice_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:18",
+      "label": "赎回款到账时间",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "settlement_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:19",
+      "label": "最低初次申购金额",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "minimum_initial_million_usd",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:20",
+      "label": "最低追加申购金额",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "minimum_additional_million_usd",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:21",
+      "label": "最低赎回金额",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "minimum_redemption_million_usd",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:22",
+      "label": "赎回金额限制",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "gate_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:24",
+      "label": "基金策略",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "strategy",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:25",
+      "label": "基金策略详情",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "strategy_detail",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:26",
+      "label": "配置策略",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "allocation_role",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:27",
+      "label": "投资地区",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "investment_region",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:29",
+      "label": "申购费率",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "subscription_fee_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:30",
+      "label": "赎回费率",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "redemption_fee_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:31",
+      "label": "管理费率",
+      "table": "finance_proprietary_class_terms",
+      "columns": [
+        {
+          "table": "finance_proprietary_class_terms",
+          "name": "management_fee_text",
+          "logical_table": "proprietary_class_terms"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:33",
+      "label": "银行名称",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "bank_name",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:34",
+      "label": "账号",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "account_number",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:35",
+      "label": "账号种类",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "account_type",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:36",
+      "label": "现金余额",
+      "table": "finance_proprietary_fund_details",
+      "columns": [
+        {
+          "table": "finance_proprietary_fund_details",
+          "name": "cash_balance_text",
+          "logical_table": "proprietary_fund_details"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:38",
+      "label": "净值",
+      "handling": "界面入口 → fund_navs",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "自营基金页面:39",
+      "label": "文档",
+      "handling": "界面入口 → fund_documents",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "自营基金页面:41",
+      "label": "版本号",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "business_version",
+          "logical_table": "funds"
+        },
+        {
+          "table": "finance_fund_versions",
+          "name": "version_no",
+          "logical_table": "fund_versions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:42",
+      "label": "保存时间",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "saved_at",
+          "logical_table": "funds"
+        },
+        {
+          "table": "finance_fund_versions",
+          "name": "saved_at",
+          "logical_table": "fund_versions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:43",
+      "label": "删除标记",
+      "table": "finance_funds",
+      "columns": [
+        {
+          "table": "finance_funds",
+          "name": "is_deleted",
+          "logical_table": "funds"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:45",
+      "label": "成分子基金",
+      "table": "finance_composition_items",
+      "columns": [
+        {
+          "table": "finance_composition_items",
+          "name": "child_share_class_id",
+          "logical_table": "composition_items"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:46",
+      "label": "份额",
+      "table": "finance_composition_items",
+      "columns": [
+        {
+          "table": "finance_composition_items",
+          "name": "units",
+          "logical_table": "composition_items"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:47",
+      "label": "权重",
+      "handling": "计算项 → 同币种成分市值比例，6.8",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "自营基金页面:48",
+      "label": "日期",
+      "table": "finance_composition_snapshots",
+      "columns": [
+        {
+          "table": "finance_composition_snapshots",
+          "name": "valuation_date",
+          "logical_table": "composition_snapshots"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "自营基金页面:49",
+      "label": "备注",
+      "table": "finance_composition_items",
+      "columns": [
+        {
+          "table": "finance_composition_items",
+          "name": "remarks",
+          "logical_table": "composition_items"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:3",
+      "label": "客户编号",
+      "table": "finance_client_groups",
+      "columns": [
+        {
+          "table": "finance_client_groups",
+          "name": "client_code",
+          "logical_table": "client_groups"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:4",
+      "label": "投资主体名称",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "legal_name",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:5",
+      "label": "客户类型",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "client_type",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:6",
+      "label": "客户类型2",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "client_type_2",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:7",
+      "label": "常用名",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "common_name",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:8",
+      "label": "账户状态",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "account_status",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:9",
+      "label": "签署协议",
+      "table": "finance_entity_agreements",
+      "columns": [
+        {
+          "table": "finance_entity_agreements",
+          "name": "option_code",
+          "logical_table": "entity_agreements"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:10",
+      "label": "产品",
+      "table": "finance_entity_products",
+      "columns": [
+        {
+          "table": "finance_entity_products",
+          "name": "option_code",
+          "logical_table": "entity_products"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:11",
+      "label": "首次投资 OFC 日期",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "first_ofc_investment_date",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:12",
+      "label": "首次投资日期",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "initial_investment_date",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:14",
+      "label": "定期回顾表发送情况",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "review_form_status",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:15",
+      "label": "定期回顾表签署日期",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "review_form_signed_date",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:16",
+      "label": "最近 CDD 批准日期",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "latest_cdd_approval_date",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:17",
+      "label": "客户风险评级",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "risk_rating",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:18",
+      "label": "下次 CDD 截止日期",
+      "handling": "计算项 → EDATE(CDD 日期, 36) − 1，6.3",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:19",
+      "label": "核证副本提供方",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "ctc_provider",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:20",
+      "label": "专业投资者资产证明",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "pi_asset_proof",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:21",
+      "label": "PI Letter 签署日期",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "pi_letter_signed_date",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:22",
+      "label": "税务居民地",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "tax_residence",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:24",
+      "label": "Amrita 对接人",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "key_contact_user_id",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:25",
+      "label": "客户联系人",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "client_contact",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:26",
+      "label": "定期回顾表接收邮箱",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "review_form_email",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:27",
+      "label": "所在城市",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "city",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:28",
+      "label": "通讯地址",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "mailing_address",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "客户页面:30",
+      "label": "基金名称",
+      "handling": "计算项 → 持仓关联份额的基金名称",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:31",
+      "label": "基金类型",
+      "handling": "计算项 → funds.fund_kind",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:32",
+      "label": "持有份额",
+      "handling": "计算项 → 生效申购份额 − 生效赎回份额",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:33",
+      "label": "最新净值",
+      "handling": "计算项 → fund_navs 最近可用净值",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:34",
+      "label": "净值日期",
+      "handling": "计算项 → 所用净值的日期",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:35",
+      "label": "持有市值",
+      "handling": "计算项 → 持有份额 × 所用净值",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "客户页面:37",
+      "label": "删除标记",
+      "table": "finance_investment_entities",
+      "columns": [
+        {
+          "table": "finance_investment_entities",
+          "name": "is_deleted",
+          "logical_table": "investment_entities"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:3",
+      "label": "交易类型",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "transaction_type",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:4",
+      "label": "基金",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "share_class_id",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:5",
+      "label": "确认日期",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "confirmation_date",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:6",
+      "label": "金额",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "amount",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:7",
+      "label": "币种",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "currency",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:8",
+      "label": "确认份额",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "confirmed_units",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:9",
+      "label": "确认净值",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "confirmed_nav",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:10",
+      "label": "费率",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "fee_rate",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:11",
+      "label": "费用",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "fee",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:12",
+      "label": "备注",
+      "table": "finance_transactions",
+      "columns": [
+        {
+          "table": "finance_transactions",
+          "name": "remarks",
+          "logical_table": "transactions"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "申赎记录:14",
+      "label": "修改",
+      "handling": "操作 → 修改服务、并发校验和历史份额重算，6.5",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "基准页面:3",
+      "label": "基准名称",
+      "table": "finance_benchmarks",
+      "columns": [
+        {
+          "table": "finance_benchmarks",
+          "name": "name",
+          "logical_table": "benchmarks"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "基准页面:4",
+      "label": "基准分类",
+      "table": "finance_benchmarks",
+      "columns": [
+        {
+          "table": "finance_benchmarks",
+          "name": "category",
+          "logical_table": "benchmarks"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "基准页面:5",
+      "label": "备注",
+      "table": "finance_benchmarks",
+      "columns": [
+        {
+          "table": "finance_benchmarks",
+          "name": "remarks",
+          "logical_table": "benchmarks"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "基准页面:7",
+      "label": "日期",
+      "table": "finance_benchmark_values",
+      "columns": [
+        {
+          "table": "finance_benchmark_values",
+          "name": "value_date",
+          "logical_table": "benchmark_values"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "基准页面:8",
+      "label": "净值",
+      "table": "finance_benchmark_values",
+      "columns": [
+        {
+          "table": "finance_benchmark_values",
+          "name": "index_value",
+          "logical_table": "benchmark_values"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:3",
+      "label": "日期",
+      "table": "finance_fund_navs",
+      "columns": [
+        {
+          "table": "finance_fund_navs",
+          "name": "nav_date",
+          "logical_table": "fund_navs"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:4",
+      "label": "单位净值",
+      "table": "finance_fund_navs",
+      "columns": [
+        {
+          "table": "finance_fund_navs",
+          "name": "nav_per_unit",
+          "logical_table": "fund_navs"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:5",
+      "label": "重复处理",
+      "handling": "规则 → share_class_id + nav_date 唯一，同日覆盖",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:6",
+      "label": "文件格式",
+      "handling": "规则 → xlsx/xls/CSV，首工作表首行表头",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:7",
+      "label": "手工补录",
+      "handling": "操作 → 净值单条录入，与导入共用校验",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:8",
+      "label": "单条删除",
+      "handling": "操作 → 净值单条删除，重新查询持仓",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:10",
+      "label": "日期",
+      "table": "finance_benchmark_values",
+      "columns": [
+        {
+          "table": "finance_benchmark_values",
+          "name": "value_date",
+          "logical_table": "benchmark_values"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:11",
+      "label": "净值",
+      "table": "finance_benchmark_values",
+      "columns": [
+        {
+          "table": "finance_benchmark_values",
+          "name": "index_value",
+          "logical_table": "benchmark_values"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:13",
+      "label": "文档类型",
+      "table": "finance_fund_documents",
+      "columns": [
+        {
+          "table": "finance_fund_documents",
+          "name": "document_type",
+          "logical_table": "fund_documents"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:14",
+      "label": "文件",
+      "table": "finance_fund_documents",
+      "columns": [
+        {
+          "table": "finance_fund_documents",
+          "name": "storage_key",
+          "logical_table": "fund_documents"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:15",
+      "label": "文件名",
+      "table": "finance_fund_documents",
+      "columns": [
+        {
+          "table": "finance_fund_documents",
+          "name": "original_name",
+          "logical_table": "fund_documents"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:16",
+      "label": "大小",
+      "table": "finance_fund_documents",
+      "columns": [
+        {
+          "table": "finance_fund_documents",
+          "name": "size_bytes",
+          "logical_table": "fund_documents"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:17",
+      "label": "上传时间",
+      "table": "finance_fund_documents",
+      "columns": [
+        {
+          "table": "finance_fund_documents",
+          "name": "uploaded_at",
+          "logical_table": "fund_documents"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:18",
+      "label": "下载 / 删除",
+      "handling": "操作 → 权限受控下载及物理删除，6.9",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:20",
+      "label": "日期",
+      "table": "finance_fund_returns",
+      "columns": [
+        {
+          "table": "finance_fund_returns",
+          "name": "return_date",
+          "logical_table": "fund_returns"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:21",
+      "label": "MTD收益率",
+      "table": "finance_fund_returns",
+      "columns": [
+        {
+          "table": "finance_fund_returns",
+          "name": "mtd_return",
+          "logical_table": "fund_returns"
+        }
+      ],
+      "required_unconfirmed": false,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:22",
+      "label": "是否预估值",
+      "table": "finance_fund_returns",
+      "columns": [
+        {
+          "table": "finance_fund_returns",
+          "name": "estimate_label",
+          "logical_table": "fund_returns"
+        }
+      ],
+      "required_unconfirmed": true,
+      "result": "physical-columns-verified"
+    },
+    {
+      "source_key": "净值与文档:23",
+      "label": "重复处理",
+      "handling": "规则 → share_class_id + return_date 唯一，同日覆盖",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:24",
+      "label": "文件格式",
+      "handling": "规则 → xlsx/xls/CSV，首工作表首行表头",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:25",
+      "label": "手工补录",
+      "handling": "操作 → 收益单条录入，与导入共用校验",
+      "result": "explicit-rule-or-deferred"
+    },
+    {
+      "source_key": "净值与文档:26",
+      "label": "单条删除",
+      "handling": "操作 → 收益单条删除；不增加基金版本",
+      "result": "explicit-rule-or-deferred"
+    }
+  ],
+  "note": "核对实际数据库列；计算项、动作和未定义字段仍按处理说明执行，不代表所有页面已完成。"
+}

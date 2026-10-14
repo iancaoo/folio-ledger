@@ -1,0 +1,910 @@
+{
+  "generated_at": "2026-10-13T18:50:04.606243+00:00",
+  "scope": "模拟数据技术验收；未代替真实业务配置确认、历史文件迁移、生产部署及用户试用",
+  "total": 42,
+  "technical_pass": 42,
+  "cases": [
+    {
+      "id": "A01",
+      "scenario": "同基金新增两种份额，币种与费率不同",
+      "expected": "公共资料共用；份额条件、净值与交易隔离",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 79,
+          "test": "A01: different currencies and fee terms share one fund while NAVs and trades remain class-specific",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A02",
+      "scenario": "新建基金时某子表校验失败",
+      "expected": "不留下基金、份额或版本的部分记录",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 160,
+          "test": "failed aggregate leaves no partial fund or request receipt",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A03",
+      "scenario": "同一客户编号创建两个投资主体",
+      "expected": "持仓独立；默认不合并报告对象",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 1211,
+          "test": "Paged holdings preserve exact totals, cutoff dates, missing NAV, deleted objects and independent same-client subjects",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A04",
+      "scenario": "从主体持仓进入赎回",
+      "expected": "主体和份额已带入；无需重复检索",
+      "result": "technical-pass",
+      "tests": [],
+      "browser": [
+        {
+          "file": "tests/browser-query.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:45:08.647Z"
+        }
+      ]
+    },
+    {
+      "id": "A05",
+      "scenario": "同一主体份额申购 100 再赎回 30",
+      "expected": "持有份额为 70",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 131,
+          "test": "actual transactions produce 70 units, NAV 1.25, value 87.5; unsafe void rolls back",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A06",
+      "scenario": "该份额最新净值为 1.25",
+      "expected": "市值为 87.50，显示实际净值日期及份额币种",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 131,
+          "test": "actual transactions produce 70 units, NAV 1.25, value 87.5; unsafe void rolls back",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A07",
+      "scenario": "删除所有可用净值",
+      "expected": "份额仍为 70；净值与市值显示缺失，不变为零",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 405,
+          "test": "Current positions ignore future facts; deleting the last usable NAV leaves a missing value",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A08",
+      "scenario": "撤销 A05 的 100 份申购",
+      "expected": "因后续赎回导致负份额而拒绝；两个记录均保持原状态",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 131,
+          "test": "actual transactions produce 70 units, NAV 1.25, value 87.5; unsafe void rolls back",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A09",
+      "scenario": "将历史申购改到赎回之后",
+      "expected": "定位第一个负份额日期，整次修改不提交",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 579,
+          "test": "Trade editing replays both accounts, rejects historical shortage and preserves manual currency and amounts",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A10",
+      "scenario": "同日申购和赎回以不同文件行顺序导入",
+      "expected": "按日汇总后结果一致；不编造日内时序",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 716,
+          "test": "Trade import replays the final same-day set independently of row order, retaining exact facts and provenance",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A11",
+      "scenario": "重新提交同一个交易请求",
+      "expected": "返回原交易，不增加第二笔",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 258,
+          "test": "Concurrent retries of one key create one trade, including first account guard insertion",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A12",
+      "scenario": "两笔真实交易业务字段完全相同",
+      "expected": "提示疑似重复；明确继续后可保存两笔",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 562,
+          "test": "Identical real trades require explicit confirmation, and changed duplicate sets require rechecking",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A13",
+      "scenario": "同日净值再次上传",
+      "expected": "预览显示旧值和新值；提交后只有一条当前值",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 369,
+          "test": "An existing NAV changed after preview refuses the selected batch; invalid rows may be excluded explicitly",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-query.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:45:08.647Z"
+        },
+        {
+          "file": "tests/browser-series-import.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:31:08.623Z"
+        }
+      ]
+    },
+    {
+      "id": "A14",
+      "scenario": "同一文件内同份额同日出现两个不同净值",
+      "expected": "要求先解决冲突，不静默采用最后一行",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 217,
+          "test": "Same-file same-date conflicts require explicit row selection; no last-row-wins",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A15",
+      "scenario": "预览后另一个用户改了同日净值",
+      "expected": "提交被标为预览过期，需要重新核对",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 369,
+          "test": "An existing NAV changed after preview refuses the selected batch; invalid rows may be excluded explicitly",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A16",
+      "scenario": "导入含一个错误行",
+      "expected": "默认全批不提交；明确移除该行后才提交所选集合",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 202,
+          "test": "Import containing one invalid row writes nothing, corrected retry commits selected collection atomically",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 369,
+          "test": "An existing NAV changed after preview refuses the selected batch; invalid rows may be excluded explicitly",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A17",
+      "scenario": "导入百分数 2% 与比例 0.02",
+      "expected": "明确列口径后均保存 0.02；不产生 100 倍差异",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 234,
+          "test": "Returns column mode resolves 2% and 0.02 to identical ratio while unknown estimate remains null",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A18",
+      "scenario": "是否预估值为空",
+      "expected": "保留未知，不自动归为正式值",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 1075,
+          "test": "Return estimate mapping preserves unknown and warns before replacing a formal value; proprietary returns remain rejected",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A19",
+      "scenario": "0.1 与 0.2 的十进制合计",
+      "expected": "得到精确 0.3，不以二进制浮点误差保存",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/domain.test.ts",
+          "line": 36,
+          "test": "domain: decimal facts and arithmetic never use binary floats",
+          "passed": true,
+          "source_sha256": "ef615a816245797bac8eebe1fade43f62f5a43d9ac2b15d69aeb8d58b803ee41"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A20",
+      "scenario": "两成分市值分别为 100 和 300",
+      "expected": "权重分别为 25% 和 75%",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 596,
+          "test": "Complete same-date composition uses latest eligible NAV and all-or-none weights; snapshots retain only source facts",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A21",
+      "scenario": "成分缺少一条净值或出现不同币种",
+      "expected": "整组权重不输出，并定位原因；仍可按原选填规则保存",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 627,
+          "test": "Missing optional composition dates and units or mixed currencies remain savable without misleading weights",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A22",
+      "scenario": "软删除仍有持仓的主体或基金",
+      "expected": "历史交易与持仓继续存在，显示删除标记；可以恢复",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 385,
+          "test": "Soft delete and restore preserve holdings and references while blocking new records",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A23",
+      "scenario": "修改基金及其份额条件",
+      "expected": "只增加一次业务版本，历史快照不随当前记录变化",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 436,
+          "test": "Share-class disable belongs to one immutable fund version; referenced currencies cannot be changed",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 118,
+          "test": "fund versions and idempotent retries commit together",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A24",
+      "scenario": "上传文档和净值",
+      "expected": "不增加基金资料版本；文档元数据正确",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 482,
+          "test": "Durable upload recovers after adapter failure, keeps exact bytes and one binding without a fund version",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 168,
+          "test": "stale same-day overwrite rejected; NAV changes do not add fund version",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        }
+      ]
+    },
+    {
+      "id": "A25",
+      "scenario": "修改客户资料和基准定义",
+      "expected": "覆盖当前值，不出现业务历史版本入口",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 421,
+          "test": "Entity and benchmark edits use revisions and overwrite current data without business versions",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A26",
+      "scenario": "只读用户调用新增接口",
+      "expected": "后端拒绝；不依赖前端隐藏按钮",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/api.test.ts",
+          "line": 67,
+          "test": "Anonymous and read-only sessions cannot mutate; spoofed role header is rejected",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A27",
+      "scenario": "从备份恢复到隔离环境",
+      "expected": "关联约束通过，核心记录和文件可访问",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/backup-restore.test.ts",
+          "line": 12,
+          "test": "Offline whole-database and private-file backup restores into isolation with roles, keys, receipts and unfinished tasks intact",
+          "passed": true,
+          "source_sha256": "9f6f751ec65c65774855bcfb378a0c51d6dfb755a6450570d6deb50b853271cd"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A28",
+      "scenario": "比对字段清单与映射附录",
+      "expected": "每条字段、计算项和操作规则都有明确落点，无遗漏和静默类型修改",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/install.test.ts",
+          "line": 13,
+          "test": "Fresh install, replayable initialization and upgrade preserve one aggregate and its receipt",
+          "passed": true,
+          "source_sha256": "9a351301d4538e207d67fcca6b3fcdde2b0065de498180ec120d32d479833999"
+        },
+        {
+          "file": "tests/domain.test.ts",
+          "line": 68,
+          "test": "mapping layer: all 161 source rows are retained; disputed text fields remain text",
+          "passed": true,
+          "source_sha256": "ef615a816245797bac8eebe1fade43f62f5a43d9ac2b15d69aeb8d58b803ee41"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A29",
+      "scenario": "两人同时修改同一主体",
+      "expected": "后提交者收到修订冲突，不覆盖对方已保存内容",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 421,
+          "test": "Entity and benchmark edits use revisions and overwrite current data without business versions",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A30",
+      "scenario": "输入 2024-02-29 为 CDD 批准日期",
+      "expected": "按原 EDATE 规则得到 2027-02-27；源日期为空时结果为空",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/domain.test.ts",
+          "line": 58,
+          "test": "domain: EDATE +36 months then minus one day, with month-end clamping",
+          "passed": true,
+          "source_sha256": "ef615a816245797bac8eebe1fade43f62f5a43d9ac2b15d69aeb8d58b803ee41"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 861,
+          "test": "Entity import preserves two subjects sharing one client code and calculates CDD without preview writes",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-main-import.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:30:57.236Z"
+        }
+      ]
+    },
+    {
+      "id": "A31",
+      "scenario": "编辑者及平台高权限会话调用受保护表通用写接口、关联写和批量动作",
+      "expected": "未进入领域服务的写入均被服务端拒绝；基金子表、版本表也受保护",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/api.test.ts",
+          "line": 76,
+          "test": "Root cannot bypass domain API through generic collection writes",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 299,
+          "test": "Nested repository relation writes and native workflow CRUD instructions are rejected",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 290,
+          "test": "Bulk, upsert, increment and hooks:false writes cannot bypass the per-query capability",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A32",
+      "scenario": "原持仓 100，同时提交两笔各 80 份赎回",
+      "expected": "至多一笔成功，最终历史份额不为负；首次持仓键并发创建同样受控",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 142,
+          "test": "concurrent withdrawals share an account lock and cannot create negative units",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 311,
+          "test": "Different requests concurrently creating the first account preserve both real subscriptions",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A33",
+      "scenario": "预览中目标净值尚不存在，另一会话先插入同键记录",
+      "expected": "提交提示预览过期，不静默转为覆盖；整批不写入",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 224,
+          "test": "Stale second row rolls back first row of whole import and preserves preview",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A34",
+      "scenario": "精确数值 123456789012345.12345678 与比例 0.00000001 往返表单、API、数据库、导出及再导入",
+      "expected": "数值等价且精度不丢失；确认净值超四位、NaN、Infinity 被拒绝",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 267,
+          "test": "Exact NAV and tiny ratio survive database, text-cell Excel export and reimport",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/domain.test.ts",
+          "line": 43,
+          "test": "domain: high precision facts, multiplication and addition remain exact",
+          "passed": true,
+          "source_sha256": "ef615a816245797bac8eebe1fade43f62f5a43d9ac2b15d69aeb8d58b803ee41"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        },
+        {
+          "file": "tests/browser-export.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:31:14.692Z"
+        }
+      ]
+    },
+    {
+      "id": "A35",
+      "scenario": "一个基金在同批次修改两种份额和成分；主动再次保存相同内容",
+      "expected": "每个明确保存动作只增加一个完整版本；同请求重试不加版本",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 928,
+          "test": "One batch changes two proprietary share classes and a complete composition with only one fund version",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 118,
+          "test": "fund versions and idempotent retries commit together",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-main-import.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:30:57.236Z"
+        }
+      ]
+    },
+    {
+      "id": "A36",
+      "scenario": "在新环境安装并在已有数据环境升级 Finance 插件",
+      "expected": "模型、约束、页面、角色与动作可复现；升级后数据及来源关系保留",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/install.test.ts",
+          "line": 13,
+          "test": "Fresh install, replayable initialization and upgrade preserve one aggregate and its receipt",
+          "passed": true,
+          "source_sha256": "9a351301d4538e207d67fcca6b3fcdde2b0065de498180ec120d32d479833999"
+        },
+        {
+          "file": "tests/backup-restore.test.ts",
+          "line": 12,
+          "test": "Offline whole-database and private-file backup restores into isolation with roles, keys, receipts and unfinished tasks intact",
+          "passed": true,
+          "source_sha256": "9f6f751ec65c65774855bcfb378a0c51d6dfb755a6450570d6deb50b853271cd"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A37",
+      "scenario": "检查基金及版本实际写入字段",
+      "expected": "没有因平台默认行为记录业务修改人；负责人字段仍按原表保存",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 175,
+          "test": "database has no automatic business modified-by fields on funds or versions",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A38",
+      "scenario": "无下载权限的用户猜测文件或批次 ID；文档删除中断",
+      "expected": "前者被拒绝；删除显示未完成并可重试，最终无在线文件及可用元数据",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/api.test.ts",
+          "line": 256,
+          "test": "Private document upload, protected downloads, retry and physical deletion use one file task",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 507,
+          "test": "Failed physical deletion blocks reads; restart can complete after file disappears but metadata remains",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A39",
+      "scenario": "同一幂等键并发请求或改换内容；提交后响应丢失",
+      "expected": "同内容仅执行一次，异内容返回 409，原结果可查询",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 258,
+          "test": "Concurrent retries of one key create one trade, including first account guard insertion",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 118,
+          "test": "fund versions and idempotent retries commit together",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/api.test.ts",
+          "line": 212,
+          "test": "Application restart preserves the original success location and committed import result",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        }
+      ],
+      "browser": [
+        {
+          "file": "tests/browser-smoke.cjs",
+          "passed": true,
+          "executed_at": "2026-10-13T18:32:02.913Z"
+        },
+        {
+          "file": "tests/browser-drafts.ts",
+          "passed": true,
+          "executed_at": "2026-10-13T18:45:21.563Z"
+        }
+      ]
+    },
+    {
+      "id": "A40",
+      "scenario": "预览后修改候选配置、软删除关联对象或录入影响持仓的交易",
+      "expected": "对应预览失效，重新检查并显示新结果，不使用旧校验直接写入",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 356,
+          "test": "Configuration change invalidates a ready import and a new preview can commit",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 792,
+          "test": "A manual trade after batch preview invalidates it; related entity changes and voided edits also invalidate it",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 1112,
+          "test": "Series preview detects delete-and-reinsert with identical revision and parent deletion; excluded targets do not stale a batch",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A41",
+      "scenario": "批次提交中人为触发后半段失败，或应用在提交后重启",
+      "expected": "失败无部分业务记录；成功重启后可查询原结果，不重复交易和版本",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/database.test.ts",
+          "line": 809,
+          "test": "Trade import rolls back earlier writes and its success receipt on a late persistence failure",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 982,
+          "test": "Main-data batches roll back funds, share classes, versions and receipts after a later aggregate failure",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        },
+        {
+          "file": "tests/api.test.ts",
+          "line": 212,
+          "test": "Application restart preserves the original success location and committed import result",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        }
+      ],
+      "browser": []
+    },
+    {
+      "id": "A42",
+      "scenario": "编辑者尝试进入页面设计或改字段，业务角色调用修改系统字段的动作",
+      "expected": "平台配置权限受限；自定义 API 字段白名单拒绝越界写入",
+      "result": "technical-pass",
+      "tests": [
+        {
+          "file": "tests/api.test.ts",
+          "line": 234,
+          "test": "Finance editor can enter data but cannot change platform schema, roles, plugins or option configuration",
+          "passed": true,
+          "source_sha256": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6"
+        },
+        {
+          "file": "tests/database.test.ts",
+          "line": 283,
+          "test": "Domain API rejects system fields both inside values and at aggregate level",
+          "passed": true,
+          "source_sha256": "6dea01078ae23823fb612539ef9c9cf428072c38ec6ed78974fb7a18d65d31f8"
+        }
+      ],
+      "browser": []
+    }
+  ]
+}

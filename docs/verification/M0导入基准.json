@@ -1,0 +1,19 @@
+{
+  "at": "2026-10-13T09:11:13.673Z",
+  "platform": "NocoBase 2.2.24",
+  "host": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 12,
+    "cpu_model": "Apple M4 Pro",
+    "memory_gib": 48
+  },
+  "rows": 10000,
+  "bytes": 360013,
+  "stage_ms": 575,
+  "preview_ms": 2310,
+  "preview_target_ms": 30000,
+  "preview_target_met": true,
+  "note": "Single sample on local demo server. This does not cover 100k trades, 300k series rows, five sessions or P95 targets.",
+  "batch_id": "3180199d-d1c6-4e7e-a44a-ca6b07e7053d"
+}

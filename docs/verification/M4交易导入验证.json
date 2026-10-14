@@ -1,0 +1,60 @@
+{
+  "at": "2026-10-13T14:13:14.499Z",
+  "platform": "NocoBase 2.2.24 / PostgreSQL 17.9",
+  "scope": "M4 交易批量录入技术验证；模拟数据，非生产验收",
+  "build": "passed",
+  "automated": {
+    "domain": 11,
+    "database": 49,
+    "http": 11,
+    "all_passed": true,
+    "previous_install_check": 1
+  },
+  "browser_regression": {
+    "passed": true,
+    "fundName": "浏览器模拟基金-1791900389438",
+    "parentName": "浏览器模拟自营-1791900389438",
+    "entityNames": [
+      "浏览器模拟主体A-1791900389438",
+      "浏览器模拟主体B-1791900389438"
+    ],
+    "timestamp": "2026-10-13T14:06:58.460Z",
+    "checks": 24
+  },
+  "browser_trade_import": {
+    "passed": true,
+    "timestamp": "2026-10-13T14:13:14.499Z",
+    "checks": 5,
+    "fund_id": "07f19365-04d4-48ea-90fa-563c15f04102",
+    "entity_id": "9b4302b5-59d2-41fe-9d5b-5b017c9ca206"
+  },
+  "behaviors_verified": [
+    "同日申购 100 与赎回 30 的两种文件行序都得到 70",
+    "主体内部 ID 与 ISIN 明确匹配，不存在的交易 ID 不转为新增",
+    "原值保留、独立修正、百分数 2% 转换为比例 0.02、旧值核对",
+    "同文件与已有交易重复均需明确确认，选择集合变化使旧确认失效",
+    "交易修改检查原账户及新账户；历史不足定位日期",
+    "内容相同的更新不改写记录；有变化的更新只修改对应交易",
+    "关联资料、历史交易和撤销变化使旧预览失效",
+    "两批并发各赎回 80 只成功一批，另一批重新预览后显示不足",
+    "后半段失败整批回滚，无成功凭据及部分交易",
+    "提交重试及应用重启保留同一批次结果，不重复交易",
+    "匿名及非 Finance 用户不能下载包含参考 ID 的模板，只读用户不能上传或提交"
+  ],
+  "test_files": [
+    "tests/database.test.ts",
+    "tests/api.test.ts",
+    "tests/browser-smoke.cjs",
+    "tests/browser-trade-import.ts"
+  ],
+  "screenshots": [
+    "M4交易转换.png",
+    "M4交易导入.png"
+  ],
+  "remaining": [
+    "M4 主数据／成分／基准数值及更多对象导入",
+    "草稿、质量工作台、完整分页、全业务导出",
+    "公式缓存、普通 XLS 数字精度诊断、原件与临时文件清理",
+    "M5 A01—A42 逐项验收、规定规模 P95、备份恢复及正式试用"
+  ]
+}

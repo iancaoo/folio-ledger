@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-label="业务数据关系"><defs><marker id="finance-data-model-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#78909f"/></marker></defs><rect width="100%" height="100%" rx="18" fill="#f5f8fa"/>
+<text x="32" y="42" font-family="Arial,PingFang SC,sans-serif" font-size="24" font-weight="700" fill="#18344d">业务数据关系</text>
+<text x="32" y="70" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">业务关系保持不变；图中为逻辑表名，实际 Collection 加 finance_ 前缀</text>
+<rect x="80" y="108" width="310" height="88" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="235.0" y="139" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">基金 funds</text>
+<text x="235.0" y="165" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">公共资料 · 三方 / 自营</text>
+<rect x="800" y="108" width="310" height="88" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="955.0" y="139" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">客户分组 client_groups</text>
+<text x="955.0" y="165" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">一个客户编号</text>
+<rect x="80" y="260" width="310" height="88" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="235.0" y="291" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">份额 share_classes</text>
+<text x="235.0" y="317" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">ISIN · 股份类别 · 币种</text>
+<rect x="800" y="260" width="310" height="88" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="955.0" y="291" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">投资主体 investment_entities</text>
+<text x="955.0" y="317" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">独立法律主体与客户资料</text>
+<path d="M235 196 V260" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="285" y="235" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<path d="M955 196 V260" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="1005" y="235" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<rect x="475" y="415" width="320" height="100" rx="10" fill="#18344d" stroke="#18344d" stroke-width="1.5"/>
+<text x="635.0" y="446" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#fff">申赎 transactions</text>
+<text x="635.0" y="472" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#fff">一笔申购或赎回</text>
+<text x="635.0" y="496" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#fff">关联主体与份额；保存即生效</text>
+<path d="M390 303 H635 V415" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="516" y="290" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<path d="M955 348 V465 H795" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="1000" y="412" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<rect x="35" y="415" width="195" height="100" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="132.5" y="446" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">历史净值</text>
+<text x="132.5" y="472" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">份额 + 日期</text>
+<text x="132.5" y="496" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">同日覆盖</text>
+<rect x="252" y="415" width="195" height="100" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="349.5" y="446" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">MTD 收益</text>
+<text x="349.5" y="472" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">三方份额 + 日期</text>
+<text x="349.5" y="496" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">正式 / 预估 / 未填</text>
+<path d="M180 348 V380 H132 V415" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="115" y="373" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<path d="M285 348 V380 H350 V415" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="361" y="371" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<rect x="80" y="627" width="310" height="100" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="235.0" y="658" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">成分清单 snapshots</text>
+<text x="235.0" y="684" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">父级为一只自营基金</text>
+<text x="235.0" y="708" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">一日一组完整清单</text>
+<rect x="475" y="627" width="320" height="100" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="635.0" y="658" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">成分行 items</text>
+<text x="635.0" y="684" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">子级为一种三方份额</text>
+<text x="635.0" y="708" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">份额 · 日期 · 备注</text>
+<path d="M80 152 H16 V677 H80" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="49" y="581" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<path d="M390 677 H475" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="434" y="663" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<path d="M390 330 H460 V565 H1145 V677 H795" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-data-model-arrow)"/>
+<text x="1090" y="588" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">1 → N</text>
+<text x="80" y="778" font-family="Arial,PingFang SC,sans-serif" font-size="16" fill="#62778a">资料版本、文档、基准、导入批次和字段配置按正文表定义；持仓由交易与净值查询计算。</text></svg>

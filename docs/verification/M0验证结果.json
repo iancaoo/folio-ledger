@@ -1,0 +1,150 @@
+{
+  "date": "2026-10-14",
+  "platform_version": "2.2.24",
+  "scope": "第一阶段本地模拟数据技术验收；正式业务配置、真实数据试用及生产部署未确认",
+  "domain_and_database": {
+    "tests": 135,
+    "passed": 135
+  },
+  "http": {
+    "tests": 20,
+    "passed": 20
+  },
+  "browser": {
+    "passed": true,
+    "fundName": "浏览器模拟基金-1791916294985",
+    "parentName": "浏览器模拟自营-1791916294985",
+    "entityNames": [
+      "浏览器模拟主体A-1791916294985",
+      "浏览器模拟主体B-1791916294985"
+    ],
+    "timestamp": "2026-10-13T18:32:02.913Z",
+    "checks": 24
+  },
+  "install_and_upgrade": {
+    "tests": 1,
+    "passed": 1,
+    "note": "本轮按当前构建重新执行；空库、重放、固定版本升级均通过。"
+  },
+  "browser_trade_import": {
+    "passed": true,
+    "timestamp": "2026-10-13T18:30:45.314Z",
+    "checks": 5,
+    "fund_id": "1e95c542-99fd-4f7e-af51-998f1ede265c",
+    "entity_id": "c99fb453-b664-4947-afb7-c85e4387e108"
+  },
+  "browser_main_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T18:30:57.236Z",
+    "parent_fund_id": "9707329d-0e5d-4f97-aaed-907260685afc",
+    "entity_ids": [
+      "aef4defa-a5f9-4f10-b557-237f10448a28",
+      "46a4fb72-f88d-4878-bef5-4751d1655638"
+    ]
+  },
+  "browser_series_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T18:31:08.623Z",
+    "fund_id": "1922f26a-153c-4ba9-bb5a-bb9dbfe59470",
+    "benchmark_ids": [
+      "aaf3df89-5a40-4331-b6e2-4d509b3bcc96",
+      "f9b60ee2-706f-41cf-9cb9-766b286cf38e"
+    ]
+  },
+  "browser_query": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T18:45:08.647Z",
+    "benchmark_count": 205,
+    "share_count": 205,
+    "nav_count": 206,
+    "fund_id": "09aa8b02-bcb2-4000-b3ca-ff100edcfa89",
+    "entity_id": "0d4ae747-50d1-4d5a-9aa8-b4497d62ca2b"
+  },
+  "browser_drafts": {
+    "passed": true,
+    "checks": 6,
+    "forms": 6,
+    "timestamp": "2026-10-13T18:45:21.563Z",
+    "draft_ids": [
+      "7dcae87d-6883-4c4f-b6e2-699e61a44d6b",
+      "da9fb395-56ca-4322-a92e-b455f08d58fe",
+      "90256534-9dc1-4fce-a5da-c590f7028f54",
+      "83214f49-332f-429d-afc1-24e1e2b31d5c",
+      "bcb44653-a314-4ce8-951e-f93f40c73cdc"
+    ]
+  },
+  "browser_quality": {
+    "passed": true,
+    "checks": 7,
+    "timestamp": "2026-10-13T18:45:29.223Z",
+    "fund_id": "711f6eaa-31eb-46bd-a9b7-a9f8e0a81123",
+    "parent_fund_id": "ef67ba56-0310-432f-8525-193927b4a1ad",
+    "entity_id": "a2328b6c-fa27-4354-828a-d451abdb5055",
+    "import_batch_id": "c24ee8fb-cd89-45a8-843b-e9969d2bb531",
+    "source_row": 46
+  },
+  "executed_at": "2026-10-13T18:51:56.261123+00:00",
+  "browser_export": {
+    "passed": 4,
+    "screenshots": [
+      "M4业务导出.png",
+      "M4导出再导入.png"
+    ],
+    "simulated": true,
+    "page_errors": [],
+    "executed_at": "2026-10-13T18:31:14.692Z"
+  },
+  "totals": {
+    "current_automated": 157,
+    "historical_install": 0,
+    "browser_checks": 69,
+    "current_browser_checks": 69,
+    "historical_browser_checks": 0,
+    "note": "69 段为功能浏览器流程；五会话性能及恢复浏览器核对另列，不把请求样本数重复计入用例总数。"
+  },
+  "browser_trade_exchange": {
+    "passed": true,
+    "checks": 3,
+    "simulated": true,
+    "page_errors": [],
+    "timestamp": "2026-10-13T18:31:20.623Z",
+    "fund_id": "510046f5-59b1-459f-ad43-f1b346433699",
+    "entity_id": "c691b651-0269-441c-b74a-578baa53f41a"
+  },
+  "browser_main_exchange": {
+    "passed": true,
+    "checks": 5,
+    "simulated": true,
+    "page_errors": [],
+    "timestamp": "2026-10-13T18:31:34.251Z",
+    "fund_id": "386667d4-ccff-4465-8eb7-d9d0ba72f131",
+    "parent_fund_id": "4987e08b-a1cb-45db-a804-88777f620973",
+    "entity_id": "8b0c05fd-6736-40c5-a65e-81645c39f586"
+  },
+  "browser_file_parser": {
+    "passed": true,
+    "checks": 3,
+    "simulated": true,
+    "page_errors": [],
+    "timestamp": "2026-10-13T18:30:32.474Z",
+    "fund_id": "80639fcb-ae91-43db-9416-621ee9f1ae84"
+  },
+  "backup_restore": {
+    "tests": 1,
+    "passed": 1,
+    "evidence": "M5备份恢复验证.json"
+  },
+  "performance": {
+    "passed": true,
+    "evidence": "M5性能验证.json"
+  },
+  "acceptance": {
+    "technical_pass": 42,
+    "total": 42,
+    "evidence": "M5验收矩阵.json",
+    "business_signoff": false
+  }
+}

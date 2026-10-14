@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-14",
+  "verified_at_utc": "2026-10-13T16:11:35.248775+00:00",
+  "platform_version": "2.2.24",
+  "scope": "M4 六类个人草稿及正式保存集成；模拟数据技术验证，不代表全部业务验收完成",
+  "forms": [
+    "基金及份额（含成分）",
+    "客户与投资主体",
+    "申赎",
+    "净值与收益",
+    "基准定义",
+    "基准数值"
+  ],
+  "domain_and_database": {
+    "tests": 88,
+    "passed": 88,
+    "new_draft_tests": 5,
+    "command": "NODE_PATH=\"$PWD/apps/nocobase/node_modules\" node .runtime/tooling/node_modules/tsx/dist/cli.mjs --test tests/domain.test.ts tests/database.test.ts"
+  },
+  "http": {
+    "tests": 15,
+    "passed": 15,
+    "new_draft_tests": 1,
+    "includes_actual_restart": true
+  },
+  "browser": {
+    "passed": true,
+    "checks": 6,
+    "forms": 6,
+    "timestamp": "2026-10-13T16:08:49.607Z",
+    "draft_ids": [
+      "e560684b-e620-4444-b812-e6c2ea579ea8",
+      "e75fa9fa-d32b-4c63-acb1-f472bd6b87ed",
+      "05c3f533-ab95-43a1-be8c-a691a77c557c",
+      "0cb481fa-3219-4734-85da-0dd2e63bcaad",
+      "8e721feb-8921-4a7a-ba11-89a5e1b21405"
+    ]
+  },
+  "all_browser_regression_checks": 47,
+  "checked_invariants": [
+    "不完整输入、空关联及高精度原文本可暂存，不生成业务记录",
+    "列表、读取、修改、删除和正式消费均按所有者约束",
+    "匿名、只读、候选配置角色拒写，root 不能读取别人的草稿",
+    "草稿修订冲突和原业务修订冲突均保留已有草稿",
+    "正式写入、草稿移除、成功凭据同事务；移除失败全部回滚",
+    "同请求重试不重复创建；并发正式消费只成功一次",
+    "六类表单刷新恢复；离开选择保存、放弃或继续",
+    "普通保存及同日覆盖在响应丢失后沿用原请求，记录和修订不重复"
+  ],
+  "screenshots": [
+    "M4个人草稿.png"
+  ],
+  "limitations": [
+    "需主动保存，未实现自动保存",
+    "单份 1 MB，单个明细列表最多 2000 行；保留至删除或正式提交",
+    "本轮不重跑未受影响的隔离安装；未执行 M5 规模性能和备份恢复",
+    "A01—A42 全量验收及真实业务试用尚未完成"
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "at": "2026-10-13T15:41:55.677Z",
+  "platform": "NocoBase 2.2.24 / PostgreSQL 17.9",
+  "scope": "业务列表分页、远程关联选择及精确同日覆盖查询；模拟数据技术验证",
+  "build": "passed",
+  "automated": {
+    "domain": 11,
+    "database": 72,
+    "http": 14,
+    "rerun_total": 97,
+    "all_passed": true,
+    "previous_install_check": 1,
+    "install_note": "本轮无 Collection 或迁移变化；隔离安装 1 项沿用此前通过记录。"
+  },
+  "browser": {
+    "passed": true,
+    "fundName": "浏览器模拟基金-1791906183129",
+    "parentName": "浏览器模拟自营-1791906183129",
+    "entityNames": [
+      "浏览器模拟主体A-1791906183129",
+      "浏览器模拟主体B-1791906183129"
+    ],
+    "timestamp": "2026-10-13T15:43:29.710Z",
+    "checks": 24
+  },
+  "browser_trade_import": {
+    "passed": true,
+    "timestamp": "2026-10-13T15:43:42.720Z",
+    "checks": 5,
+    "fund_id": "1b314580-97a5-43d1-ab26-0569d735e316",
+    "entity_id": "0a9ab0a3-a173-4a9f-88f6-b16069fe8b39"
+  },
+  "browser_main_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T15:43:53.323Z",
+    "parent_fund_id": "43d476c5-7ef6-4019-90e0-38e1fe4cdb5e",
+    "entity_ids": [
+      "bd028b3b-5090-4c9c-9b9e-1d657814dcf4",
+      "668270ec-a1a3-420b-9ff4-bb30d2aa22ff"
+    ]
+  },
+  "browser_series_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T15:44:03.249Z",
+    "fund_id": "6a788453-fd2c-44b8-99f6-4020b1fa6c4f",
+    "benchmark_ids": [
+      "491318b5-3069-4e06-bb47-24ba6bee0d7c",
+      "00d9dc26-2e55-4d91-b762-7ab0aa3aa191"
+    ]
+  },
+  "browser_query": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T15:41:55.677Z",
+    "benchmark_count": 205,
+    "share_count": 205,
+    "nav_count": 206,
+    "fund_id": "09aa8b02-bcb2-4000-b3ca-ff100edcfa89",
+    "entity_id": "0d4ae747-50d1-4d5a-9aa8-b4497d62ca2b"
+  },
+  "behaviors_verified": [
+    "205 条基准经 11 个 20 行页面读取，无遗漏及重复；同时间戳以内部 ID 稳定排序",
+    "205 个份额经多页与明确 ISIN 搜索均可读取；基金列表关联资料完整，不依赖前端 200 行缓存",
+    "主体名称、客户编号、基金与份额标签由服务端关联，历史删除对象仍显示名称",
+    "单对象同日期查询独立于当前列表页；浏览器成功覆盖前 200 条以外的旧净值，保留一个当前值",
+    "按日期范围、主体、份额、基准、币种、状态及估算标记筛选；非法条件和排序被拒绝",
+    "未删除份额的选择仍检查父基金状态；历史选择按 ID 回显并标为不可新增选择，查看文档的基金选择可包含已删除对象",
+    "列表统计采用全库计数；一次读取至多 200 条，但总记录没有 200 条截断",
+    "持仓在 PostgreSQL 按主体及份额精确汇总；日期截止、缺净值、软删除、币种及同客户多主体保持既有语义",
+    "浏览器持仓筛选及历史估值通过，赎回自动带入主体和份额并恢复名称标签",
+    "远程选择支持加载更多；较慢的旧搜索响应不会覆盖新搜索",
+    "Finance 查询权限覆盖分页、统计、对象选择、负责人查询和同日数值查询；负责人接口仅返回 ID、显示名及用户名",
+    "用户搜索中的百分号、下划线和反斜杠按字面匹配；恶意排序、私有表和不合法分页不能绕过白名单"
+  ],
+  "fixtures": {
+    "benchmark_definitions": 205,
+    "share_classes": 205,
+    "nav_records_for_one_class": 206,
+    "note": "浏览器专用模拟夹具使用固定幂等键，可重复运行，不删除其他数据。"
+  },
+  "test_files": [
+    "tests/database.test.ts",
+    "tests/api.test.ts",
+    "tests/browser-query.ts",
+    "tests/browser-smoke.cjs",
+    "tests/browser-trade-import.ts",
+    "tests/browser-main-import.ts",
+    "tests/browser-series-import.ts"
+  ],
+  "screenshots": [
+    "M4完整分页.png",
+    "M4旧净值覆盖.png"
+  ],
+  "limitations": [
+    "未执行十万交易／三十万时序／五会话 P95；本轮不构成性能验收",
+    "草稿、质量工作台、导出页面、公式缓存与 XLS 精度诊断、解析任务与原件清理尚待完成",
+    "A01—A42 逐项验收、备份恢复及真实业务试用仍未完成"
+  ]
+}

@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+.runtime/
+.env
+.env.*
+!.env.example
+storage/
+dist/
+coverage/
+*.log
+Finance交接/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc
+

@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-10-13T18:45:23.164Z",
+  "platform": "2.2.24",
+  "isolated_database": true,
+  "isolated_storage": true,
+  "duration_ms": 21613,
+  "checks": [
+    "空库安装",
+    "四个业务角色无平台设计权限",
+    "菜单不重复",
+    "数据库 CHECK 与负责人外键",
+    "候选初始化",
+    "基金两份额",
+    "重复安装保留数据",
+    "固定版本升级",
+    "重启后同请求重放只有一个资料版本"
+  ],
+  "result": "passed"
+}

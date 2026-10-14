@@ -1,0 +1,78 @@
+{
+  "at": "2026-10-13T14:56:55.327Z",
+  "platform": "NocoBase 2.2.24 / PostgreSQL 17.9",
+  "scope": "M4 主体、基金及成分批量录入技术验证；模拟数据，非生产验收",
+  "build": "passed",
+  "automated": {
+    "domain": 11,
+    "database": 59,
+    "http": 12,
+    "all_passed": true,
+    "rerun_total": 82,
+    "previous_install_check": 1,
+    "install_note": "此前隔离安装通过；本轮未变更 Collection 或迁移，未重复安装测试。"
+  },
+  "browser_regression": {
+    "passed": true,
+    "fundName": "浏览器模拟基金-1791903134938",
+    "parentName": "浏览器模拟自营-1791903134938",
+    "entityNames": [
+      "浏览器模拟主体A-1791903134938",
+      "浏览器模拟主体B-1791903134938"
+    ],
+    "timestamp": "2026-10-13T14:52:44.013Z",
+    "checks": 24
+  },
+  "browser_trade_import": {
+    "passed": true,
+    "timestamp": "2026-10-13T14:55:34.358Z",
+    "checks": 5,
+    "fund_id": "dd7957e4-9e44-4d05-b7eb-b4c67757f38e",
+    "entity_id": "39771683-24bf-490e-a303-c805ef04b3d8"
+  },
+  "browser_main_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T14:56:55.327Z",
+    "parent_fund_id": "bd746e52-e6c5-4b90-8a71-f8661c6257e2",
+    "entity_ids": [
+      "80770ba2-7ef5-45d5-8e91-49c5486ecfa8",
+      "aecafe6f-c8c1-4475-805d-3146483e0dfc"
+    ]
+  },
+  "behaviors_verified": [
+    "模板由来源字段生成，复合字段拆列、重复联系字段分组，表头唯一且不超过 100 列",
+    "同客户编号可创建独立主体，更新依赖明确内部 ID；不存在的 ID 不作为新增",
+    "空白保留已有主数据，#清空 明确清空；原始文件与独立修正值均保留",
+    "Hold 日期错误可定位及修正，CDD 只读计算，不猜测真实日期",
+    "多个份额及成分合并为一个基金聚合，每基金每次保存只新增一个版本",
+    "主动再次保存基金生成版本，提交重试及应用重启不重复版本",
+    "公共字段冲突、重复 ISIN、错误父子关联及不适用行字段被拒绝",
+    "既有成分清单替换展示完整差异与移除项，并要求明确确认",
+    "已列出成分的空白份额和备注保留旧值，明确清空和清空整组分别处理",
+    "成分日期与份额可留空；选择集合变化后旧替换确认失效",
+    "对象修订、停用、删除或预览后 ISIN 被占用使旧预览失效",
+    "并发手工与批量保存使用一致锁顺序，无重复标识或死锁",
+    "后续聚合失败时先前基金、份额、版本及成功凭据全部回滚",
+    "手工及批量录入统一校验 Gate 原数值与单位，不扩展日历含义",
+    "模板下载、上传、提交与批次读取执行角色及所有者权限检查"
+  ],
+  "test_files": [
+    "tests/domain.test.ts",
+    "tests/database.test.ts",
+    "tests/api.test.ts",
+    "tests/browser-smoke.cjs",
+    "tests/browser-trade-import.ts",
+    "tests/browser-main-import.ts"
+  ],
+  "screenshots": [
+    "M4成分替换.png",
+    "M4主体导入.png"
+  ],
+  "remaining": [
+    "基准及多对象时序导入、草稿、质量工作台、完整分页、全业务导出",
+    "公式缓存、普通 XLS 数字精度诊断、解析任务与原件及临时文件清理",
+    "M5 A01—A42 逐项验收、规定规模 P95、备份恢复及正式试用",
+    "Q01—Q10 业务口径及部署条件确认"
+  ]
+}

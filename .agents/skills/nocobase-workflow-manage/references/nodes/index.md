@@ -1,0 +1,83 @@
+---
+title: Workflow Nodes
+description: "Use this directory when choosing workflow node types, branch-capable nodes, and the variable expressions nodes expose downstream."
+---
+
+# Workflow Nodes
+
+## Basic Data
+
+Configuration options and output variables differ based on the node type. The node type is specified by the `type` field. Configuration settings are stored in the `config` field (JSON).
+
+The `type` field is determined when the node is created and cannot be changed afterward. To modify a node's configuration, you must call the corresponding API to update the `config` field.
+
+## Data Relationships of Nodes
+
+1. Nodes in a NocoBase workflow are connected only through the `upstreamId` and `downstreamId` fields in the node table, representing the upstream and downstream nodes, respectively. A node without an upstream node is considered a start node.
+2. When `upstreamId` and `downstreamId` are paired, the downstream node is a direct downstream node, not a node within a branch.
+3. Workflows support organizational structures through branches. Any node with a non-null integer value in the `branchIndex` field represents the starting node of a branch. Its `upstreamId` points to the node that initiated the branch, and the specific value of `branchIndex` is defined by that initiating node. Implemented nodes that can initiate branches include:
+   - Condition node (`condition`)
+   - Parallel node (`parallel`)
+   - Multi-condition node (`multi-condition`)
+   - Loop node (`loop`)
+   - Approval node (`approval`)
+4. For nodes that can initiate branches, refer to the specific node's documentation to understand when branches are supported and the meaning of specific `branchIndex` values.
+
+## Variables Produced by Nodes
+
+Some nodes produce variables that can be used by subsequent nodes. In the UI, these variables are exposed as a tree array of `{ label, value, children? }`. `label` is only for display; the actual runtime expression is built from the `value` path.
+
+For node variables, join the `value` path segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`, for example `{{$jobsMapByNodeKey.query_posts.title}}`. Nodes that expose only a single root value are referenced directly as `{{$jobsMapByNodeKey.<nodeKey>}}`.
+
+Each node document with an `Output Variables` section that describes whether the node exposes a variable tree, what the roots are, and how to reference them.
+
+Subsequent nodes can reference these variables in their configuration to implement dynamic workflow logic as required by business needs.
+
+Some nodes return JSON while exposing only a root value or a shallow tree. Do not treat the runtime JSON shape as a frontend variable model. Before a later node uses any unmodeled child field, insert `json-variable-mapping` or `json-query`, define the output fields, and reference only that JSON node's modeled variables. This is mandatory for raw SQL results, nested HTTP response bodies, and any other output whose child paths are absent from the variable selector. See [Common Conventions - Modeling Raw JSON](../conventions/index.md#modeling-raw-json-before-downstream-use).
+
+## Usage Notes
+
+* **Only the type values specified in the documentation can be used**; other values will not be recognized by the workflow.
+* Before authoring any node configuration that contains a persisted `filter` or user/assignee query, load the `nocobase-utils` skill with topic `filter`, then read [Filter Condition Format](../../../nocobase-utils/references/filter/index.md), resolve each terminal field's live frontend interface/type, and use only that group's operator allowlist. This is mandatory for `query`, `update`, `destroy`, `aggregate`, and recipient/assignee query objects. Never derive `$lt`, `$lte`, `$gt`, or `$gte` from date wording; date fields use the date-specific operators.
+* `approval`, `response`, and `subflow` are commercial capabilities. Their matching plugins must be installed and activated before these node types are used. Apply the [Commercial Workflow Plugin Gate](../commercial-plugin-gate.md); if a required plugin is inactive, do not use the node type.
+* When approval is explicitly requested, never use `manual` as a substitute for an unavailable `approval` node.
+
+## Node Document Directory
+
+### Built-in Nodes
+
+| Type Value | Name | Document |
+|---|---|---|
+| `calculation` | Calculation | [calculation.md](calculation.md) |
+| `condition` | Condition Branch | [condition.md](condition.md) |
+| `query` | Query Records | [query.md](query.md) |
+| `create` | Create Record | [create.md](create.md) |
+| `update` | Update Record | [update.md](update.md) |
+| `destroy` | Delete Record | [destroy.md](destroy.md) |
+| `end` | End Workflow | [end.md](end.md) |
+| `output` | Workflow Output | [output.md](output.md) |
+| `multi-condition` | Multi-condition Branch | [multi-conditions.md](multi-conditions.md) |
+
+### Extension Plugin Nodes
+
+| Type Value | Name | Plugin | Document |
+|---|---|---|---|
+| `loop` | Loop | plugin-workflow-loop | [loop.md](loop.md) |
+| `parallel` | Parallel Branch | plugin-workflow-parallel | [parallel.md](parallel.md) |
+| `request` | HTTP Request | plugin-workflow-request | [request.md](request.md) |
+| `mailer` | Send Email | plugin-workflow-mailer | [mailer.md](mailer.md) |
+| `delay` | Delay | plugin-workflow-delay | [delay.md](delay.md) |
+| `notification` | System Notification | plugin-workflow-notification | [notification.md](notification.md) |
+| `aggregate` | Aggregate Query | plugin-workflow-aggregate | [aggregate.md](aggregate.md) |
+| `sql` | SQL Operation | plugin-workflow-sql | [sql.md](sql.md) |
+| `cc` | CC Notification | plugin-workflow-cc | [cc.md](cc.md) |
+| `json-query` | JSON Query | plugin-workflow-json-query | [json-query.md](json-query.md) |
+| `json-variable-mapping` | JSON Variable Mapping | plugin-workflow-json-variable-mapping | [json-variable-mapping.md](json-variable-mapping.md) |
+| `script` | JavaScript | plugin-workflow-javascript | [script.md](script.md) |
+| `manual` | Manual Process | plugin-workflow-manual | [manual.md](manual.md) |
+| `response-message` | Response Message | plugin-workflow-response-message | [response-message.md](response-message.md) |
+| `subflow` | Call Workflow | `@nocobase/plugin-workflow-subflow` (commercial; activation required) | [subflow.md](subflow.md) |
+| `response` | Response (for webhook) | `@nocobase/plugin-workflow-webhook` (commercial; activation required) | [response.md](response.md) |
+| `approval` | Approval | `@nocobase/plugin-workflow-approval` (commercial; activation required) | [approval.md](approval.md) |
+| `llm` | LLM | plugin-ai | [llm.md](llm.md) |
+| `ai-employee` | AI Employee | plugin-ai | [ai-employee.md](ai-employee.md) |

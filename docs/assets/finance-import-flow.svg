@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="670" viewBox="0 0 1200 670" role="img" aria-label="Finance 插件中的批量导入"><defs><marker id="finance-import-flow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#78909f"/></marker></defs><rect width="100%" height="100%" rx="18" fill="#f5f8fa"/>
+<text x="32" y="42" font-family="Arial,PingFang SC,sans-serif" font-size="24" font-weight="700" fill="#18344d">Finance 插件中的批量导入</text>
+<text x="32" y="70" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">暂存行与正式业务表分开；全批校验通过后在一个数据库事务内提交</text>
+<rect x="35" y="130" width="260" height="105" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="165.0" y="161" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">类型与文件</text>
+<text x="165.0" y="187" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">关联对象 · 保留来源</text>
+<rect x="325" y="130" width="260" height="105" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="455.0" y="161" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">解析与映射</text>
+<text x="455.0" y="187" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">原始值 → 规范字符串</text>
+<rect x="615" y="130" width="260" height="105" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="745.0" y="161" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">校验与纠错</text>
+<text x="745.0" y="187" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">错误行 · 覆盖差异</text>
+<rect x="905" y="130" width="260" height="105" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="1035.0" y="161" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">形成可提交预览</text>
+<text x="1035.0" y="187" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">记录依赖及预览版本</text>
+<path d="M295 182 H325" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M585 182 H615" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M875 182 H905" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<rect x="35" y="395" width="260" height="132" rx="10" fill="#18344d" stroke="#18344d" stroke-width="1.5"/>
+<text x="165.0" y="426" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#fff">结果可恢复查询</text>
+<text x="165.0" y="452" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#fff">成功数量 · 对象链接</text>
+<text x="165.0" y="476" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#fff">重试返回同一结果</text>
+<rect x="325" y="395" width="260" height="132" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="455.0" y="426" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">一个 PostgreSQL 事务</text>
+<text x="455.0" y="452" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">业务事实 + 基金版本</text>
+<text x="455.0" y="476" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">成功凭据 + 批次结果</text>
+<rect x="615" y="395" width="260" height="132" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="745.0" y="426" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">加锁后最终校验</text>
+<text x="745.0" y="452" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">配置 / 状态 / 存在性 / 修订</text>
+<text x="745.0" y="476" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">历史份额 · 同键新增</text>
+<rect x="905" y="395" width="260" height="132" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="1035.0" y="426" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">确定选中集合</text>
+<text x="1035.0" y="452" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">错误行需明确修正或移除</text>
+<text x="1035.0" y="476" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">提交中只查询，不重复提交</text>
+<path d="M1035 235 V395" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M905 454 H875" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M615 454 H585" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M325 454 H295" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)"/>
+<path d="M745 395 V310 H1179 V182 H1165" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-import-flow-arrow)" stroke-dasharray="7 5"/>
+<text x="885" y="296" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">依赖变化 → 旧预览失效 → 重新核对</text>
+<text x="35" y="585" font-family="Arial,PingFang SC,sans-serif" font-size="16" fill="#62778a">任意业务行失败则整批回滚；不得后台分块提交。文件解析不持有业务写锁。</text>
+<text x="35" y="619" font-family="Arial,PingFang SC,sans-serif" font-size="16" fill="#62778a">应用重启后恢复批次状态；“提交中”不能被理解为已经失败或已经取消。</text></svg>

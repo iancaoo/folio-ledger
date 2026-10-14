@@ -1,0 +1,88 @@
+{
+  "at": "2026-10-13T15:21:25.706Z",
+  "platform": "NocoBase 2.2.24 / PostgreSQL 17.9",
+  "scope": "M4 净值、收益及基准数值的单对象／多对象导入；模拟数据技术验证",
+  "build": "passed",
+  "automated": {
+    "domain": 11,
+    "database": 67,
+    "http": 13,
+    "rerun_total": 91,
+    "all_passed": true,
+    "previous_install_check": 1,
+    "install_note": "此前隔离安装通过；本轮无 Collection 或迁移变化，未重跑安装测试。"
+  },
+  "browser": {
+    "passed": true,
+    "fundName": "浏览器模拟基金-1791904844493",
+    "parentName": "浏览器模拟自营-1791904844493",
+    "entityNames": [
+      "浏览器模拟主体A-1791904844493",
+      "浏览器模拟主体B-1791904844493"
+    ],
+    "timestamp": "2026-10-13T15:21:12.715Z",
+    "checks": 24
+  },
+  "browser_trade_import": {
+    "passed": true,
+    "timestamp": "2026-10-13T15:21:37.190Z",
+    "checks": 5,
+    "fund_id": "1527e9f2-eaad-4552-a11c-4e6824dc3808",
+    "entity_id": "d9b61602-779c-4add-8d7c-94e05a6db113"
+  },
+  "browser_main_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T15:21:50.866Z",
+    "parent_fund_id": "0dd74ab7-9058-4ce4-b9d0-1551f9cfa381",
+    "entity_ids": [
+      "af79fe26-68c6-427c-8ecc-c51393485208",
+      "8ee046a4-5487-4363-a165-6046912858ed"
+    ]
+  },
+  "browser_series_import": {
+    "passed": true,
+    "checks": 4,
+    "timestamp": "2026-10-13T15:21:25.706Z",
+    "fund_id": "ef589bcf-0b38-458d-88c6-5d0897c5696e",
+    "benchmark_ids": [
+      "86bb8247-461c-4d5d-8f28-ff93d4966a3d",
+      "7e159e10-8345-4e1c-ad95-eb280752f259"
+    ]
+  },
+  "behaviors_verified": [
+    "单对象上下文与按行识别模式明确区分，不能同时指定两种目标",
+    "多对象使用已有 ISIN 或基准 ID；同名基准仍按独立 ID 录入",
+    "模板提供份额或基准参考，明确日期、精确文本及收益口径",
+    "同对象同日期的文件内重复键必须纠错或显式取消选择；不同对象同日期互不冲突",
+    "原文件值、修正值、转换值和当前旧值可核对，原值及来源坐标保留",
+    "百分数 2% 保存为比例 0.02，小比例及长小数保持精确文本",
+    "估算标记未映射或留空保存为未知；正式变预估的覆盖风险在页面提示",
+    "自营份额不能接受三方 MTD 收益；不存在、删除或停用对象不能写入",
+    "新增、覆盖、不变分别统计，不变记录保留原修订及来源",
+    "基准定义或同日目标变化要求重新预览；删除重建且修订号相同仍检测为过期",
+    "取消选择的时序目标发生变化不会使其余选中日期的预览过期",
+    "不同文件行序的并发批次按一致顺序加锁；同一目标集合只允许一批成功",
+    "后半批注入失败时前半批数据及成功凭据回滚，原请求可安全重试",
+    "模板下载与写入执行 Finance 权限，其他用户不能读取本人批次",
+    "应用重启后重复提交返回同一成功结果，不增加记录或基金版本"
+  ],
+  "test_files": [
+    "tests/domain.test.ts",
+    "tests/database.test.ts",
+    "tests/api.test.ts",
+    "tests/browser-smoke.cjs",
+    "tests/browser-trade-import.ts",
+    "tests/browser-main-import.ts",
+    "tests/browser-series-import.ts"
+  ],
+  "screenshots": [
+    "M4收益转换.png",
+    "M4多基准导入.png"
+  ],
+  "limitations": [
+    "未执行规定规模五会话 P95；本轮测试不代表整个 M4 或 M5 完成",
+    "全业务分页、草稿、数据质量、导出界面及解析文件诊断／清理仍待完成",
+    "A01—A42 逐项交付验收、备份恢复及真实业务试用未完成"
+  ]
+}

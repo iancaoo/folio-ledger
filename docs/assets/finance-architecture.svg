@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1080" viewBox="0 0 1200 1080" role="img" aria-label="NocoBase 与 Finance 的架构"><defs><marker id="finance-architecture-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#78909f"/></marker></defs><rect width="100%" height="100%" rx="18" fill="#f5f8fa"/>
+<text x="32" y="42" font-family="Arial,PingFang SC,sans-serif" font-size="24" font-weight="700" fill="#18344d">NocoBase 与 Finance 的架构</text>
+<text x="32" y="70" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">第一阶段：NocoBase 通用后台 + Finance 插件 + PostgreSQL；金色区域为第二阶段</text>
+<rect x="60" y="105" width="1080" height="95" rx="10" fill="#18344d" stroke="#18344d" stroke-width="1.5"/>
+<text x="600.0" y="136" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#fff">浏览器中的 Finance 工作台</text>
+<text x="600.0" y="162" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#fff">基金 · 客户主体 · 申赎 · 净值与收益 · 导入中心 · 持仓与数据质量</text>
+<path d="M335 200 V248" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<path d="M865 200 V248" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<rect x="60" y="250" width="500" height="115" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="310.0" y="281" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">平台标准页面与会话</text>
+<text x="310.0" y="307" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">配置列表、详情、关联表单、筛选和导航</text>
+<text x="310.0" y="331" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">复用登录、角色和文件组件</text>
+<rect x="600" y="250" width="540" height="115" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="870.0" y="281" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">Finance 前端区块与动作</text>
+<text x="870.0" y="307" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">聚合保存 · 字符串数值控件 · 版本和持仓</text>
+<text x="870.0" y="331" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">导入预览、错误修正及提交结果</text>
+<path d="M310 365 V418" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<path d="M870 365 V418" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<rect x="60" y="420" width="1080" height="255" rx="12" fill="#edf3f6" stroke="#c5d3dc"/>
+<text x="84" y="454" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="700" fill="#18344d">一个 NocoBase 应用实例 · Node.js / TypeScript</text>
+<rect x="85" y="479" width="300" height="156" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="235.0" y="510" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">平台通用服务</text>
+<text x="235.0" y="536" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">登录会话与授权</text>
+<text x="235.0" y="560" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">通用只读查询</text>
+<text x="235.0" y="584" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">文件存储适配器</text>
+<rect x="425" y="479" width="330" height="156" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="590.0" y="510" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">Finance 业务插件</text>
+<text x="590.0" y="536" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">全部业务写入 · 字段白名单</text>
+<text x="590.0" y="560" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">历史份额校验 · 基金版本</text>
+<text x="590.0" y="584" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">导入暂存与最终提交</text>
+<rect x="795" y="479" width="320" height="156" rx="10" fill="#fff" stroke="#c5d3dc" stroke-width="1.5"/>
+<text x="955.0" y="510" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">事务与数据库访问</text>
+<text x="955.0" y="536" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">主外键 · 修订号 · 幂等</text>
+<text x="955.0" y="560" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">持仓键锁 · 聚合锁</text>
+<text x="955.0" y="584" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">迁移 · 精确数值</text>
+<path d="M385 558 H425" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<path d="M755 558 H795" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<path d="M330 675 V746" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<text x="330" y="720" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">平台配置与业务数据</text>
+<path d="M895 675 V746" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)"/>
+<text x="895" y="720" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">受控文件读写</text>
+<rect x="60" y="748" width="540" height="115" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="330.0" y="779" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">PostgreSQL 主数据库</text>
+<text x="330.0" y="805" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">平台表 + finance_ 业务 Collection</text>
+<text x="330.0" y="829" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">NUMERIC 事实 · JSONB 快照 · 导入及请求状态</text>
+<rect x="650" y="748" width="490" height="115" rx="10" fill="#e9f5f3" stroke="#087f7b" stroke-width="1.5"/>
+<text x="895.0" y="779" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">持久文件存储</text>
+<text x="895.0" y="805" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">文档原件 · 导入原文件</text>
+<text x="895.0" y="829" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">绑定与删除任务可恢复</text>
+<path d="M330 863 V923" fill="none" stroke="#78909f" stroke-width="2" marker-end="url(#finance-architecture-arrow)" stroke-dasharray="7 5"/>
+<text x="510" y="903" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="14" fill="#62778a" paint-order="stroke" stroke="#f5f8fa" stroke-width="5">一致性读取与报告快照接口</text>
+<rect x="60" y="926" width="1080" height="113" rx="10" fill="#fff6e8" stroke="#ac7220" stroke-width="1.5"/>
+<text x="600.0" y="957" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="18" font-weight="600" fill="#23384d">第二阶段 报告计算与输出</text>
+<text x="600.0" y="983" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">NocoBase 发起任务 → 一致性快照 → 计算及核对 → Excel / Slides / PDF</text>
+<text x="600.0" y="1007" text-anchor="middle" font-family="Arial,PingFang SC,sans-serif" font-size="15" fill="#62778a">报告服务可使用 Python；业务事实仍通过 Finance 服务维护</text></svg>

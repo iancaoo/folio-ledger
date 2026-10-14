@@ -1,0 +1,360 @@
+const { chromium } = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+(async () => {
+  const credentials = JSON.parse(fs.readFileSync('.runtime/dev-credentials.json', 'utf8'));
+  const login = await fetch('http://127.0.0.1:13000/api/auth:signIn', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Authenticator': 'basic' }, body: JSON.stringify({ account: credentials.admin_email, password: credentials.admin_password }) });
+  assert.equal(login.status, 200, 'Local demo login failed');
+  const token = (await login.json()).data.token;
+  const headers = { Authorization: `Bearer ${token}`, 'X-Role': 'root', 'X-Authenticator': 'basic' };
+  async function apiCall(action, body) {
+    const response = await fetch(`http://127.0.0.1:13000/api/finance:${action}`, { method: body ? 'POST' : 'GET', headers: { ...headers, 'Content-Type': 'application/json' }, body: body ? JSON.stringify({ ...body, request_key: require('node:crypto').randomUUID() }) : undefined });
+    const result = await response.json(); assert.equal(response.status, 200, JSON.stringify(result.errors));
+    if (action === 'stageImport') {
+      for (let i = 0; i < 100; i++) {
+        const current = await apiCall(`importBatch?id=${result.data.batch_id}`);
+        if (!['parsing', 'awaiting_file'].includes(current.batch.status)) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    return result.data;
+  }
+  const metadata = await fetch('http://127.0.0.1:13000/api/finance:metadata', { headers: { Authorization: `Bearer ${token}`, 'X-Role': 'root', 'X-Authenticator': 'basic' } });
+  assert.equal((await metadata.json()).data.demo_mode, true, 'Browser test writes only to the explicit demo environment');
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+  const page = await browser.newPage({ storageState: { cookies: [], origins: [{ origin: 'http://127.0.0.1:13000', localStorage: [
+    { name: 'NOCOBASE_TOKEN', value: token }, { name: 'NOCOBASE_AUTH', value: 'basic' }, { name: 'NOCOBASE_ROLE', value: 'root' }, { name: 'NOCOBASE_LOCALE', value: 'zh-CN' },
+  ] }] }, viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  const suffix = Date.now();
+  const fundName = `浏览器模拟基金-${suffix}`;
+  const entityNames = [`浏览器模拟主体A-${suffix}`, `浏览器模拟主体B-${suffix}`];
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const dialog = () => page.getByRole('dialog').last();
+  async function choose(label, text) {
+    const input = dialog().getByLabel(label, { exact: true });
+    await input.focus();
+    if (await input.getAttribute('readonly') === null) await input.fill(text instanceof RegExp ? text.source.split('.*')[0] : text);
+    await input.press('ArrowDown');
+    const controls = await input.getAttribute('aria-controls');
+    const dropdown = controls ? page.locator('.ant-select-dropdown').filter({ has: page.locator(`[id="${controls}"]`) }) : page.locator('.ant-select-dropdown:visible').last();
+    await dropdown.locator('.ant-select-item-option').filter({ hasText: text }).first().click();
+  }
+  async function saved(button) {
+    await dialog().getByRole('button', { name: button }).click();
+    await page.getByRole('dialog').last().waitFor({ state: 'hidden', timeout: 12000 });
+  }
+  try {
+    await page.goto('http://127.0.0.1:13000/admin/finance');
+    await page.getByText('模拟数据环境', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '新建基金' }).click();
+    await dialog().getByRole('button', { name: '填入模拟示例（两份额）' }).click();
+    await dialog().getByLabel('基金简称', { exact: true }).fill(fundName);
+    await dialog().getByLabel('基金规模', { exact: true }).fill('123456789012345.12345678');
+    const fundList = page.waitForResponse(response => response.url().includes('finance:list') && response.url().includes('table=funds'));
+    await saved('保存基金资料版本');
+    assert.equal((await (await fundList).json()).data.find(row => row.short_name === fundName).size_100m_usd, '123456789012345.12345678');
+    console.log('PASS browser: fund aggregate with two share classes');
+
+    await page.getByRole('tab', { name: '客户与主体' }).click();
+    for (const name of entityNames) {
+      await page.getByRole('button', { name: '新建主体' }).click();
+      await dialog().getByRole('button', { name: '填入模拟主体示例' }).click();
+      await dialog().getByLabel('客户编号', { exact: true }).fill(`BROWSER-CLIENT-${suffix}`);
+      await dialog().getByLabel('投资主体名称', { exact: true }).fill(name);
+      await saved('保存投资主体');
+    }
+    console.log('PASS browser: two investment entities');
+    await page.getByRole('tab', { name: '申赎录入' }).click();
+    for (const [kind, units, date] of [['初次申购', '100', '2026-01-01'], ['赎回', '30', '2026-01-02']]) {
+      await page.getByRole('button', { name: '录入申赎' }).click();
+      await choose('投资主体', entityNames[0]);
+      await choose('基金份额', new RegExp(`${fundName}.*· A ·`));
+      await choose('交易类型', kind);
+      await dialog().getByLabel('确认日期', { exact: true }).fill(date);
+      await dialog().getByLabel('确认份额', { exact: true }).fill(units);
+      await dialog().getByLabel('金额', { exact: true }).fill('123.456789');
+      await saved('保存并生效');
+    }
+    console.log('PASS browser: subscription and withdrawal');
+    await page.getByRole('tab', { name: '净值与收益' }).click();
+    await page.getByRole('button', { name: '录入净值' }).click();
+    await choose('基金份额', new RegExp(`${fundName}.*· A ·`));
+    await dialog().getByLabel('日期', { exact: true }).fill('2026-01-03');
+    await dialog().getByLabel('数值（收益率按百分数填写）', { exact: true }).fill('1.25');
+    await saved(/^保\s*存$/);
+    await page.getByRole('tab', { name: '持仓核对' }).click();
+    const row = page.getByRole('row').filter({ hasText: entityNames[0] });
+    for (let pageIndex = 0; pageIndex < 50 && await row.count() === 0; pageIndex++) {
+      const next = page.getByRole('tabpanel', { name: '持仓核对' }).locator('.ant-pagination-next:not(.ant-pagination-disabled)');
+      if (!await next.count()) break;
+      await next.click();
+    }
+    await row.getByRole('cell', { name: '87.50', exact: true }).waitFor();
+    assert.ok((await row.innerText()).includes('70'));
+    await page.screenshot({ path: '.runtime/browser-holdings.png', fullPage: true });
+    console.log('PASS browser: 70 units and 87.50 market value');
+
+    await page.getByRole('tab', { name: '申赎录入' }).click();
+    await page.getByRole('row').filter({ hasText: entityNames[0] }).filter({ hasText: '初次申购' }).getByRole('button', { name: /撤\s*销/ }).click();
+    await dialog().getByLabel('撤销原因', { exact: true }).fill('浏览器验证历史负份额');
+    await dialog().getByRole('button', { name: '确认撤销' }).click();
+    await dialog().getByText(/累计份额为负/).waitFor();
+    await dialog().getByRole('button', { name: 'Close', exact: true }).click();
+    console.log('PASS browser: unsafe void rejected with readable error');
+
+    await page.getByRole('tab', { name: '导入与纠错' }).click();
+    const panel = page.getByRole('tabpanel', { name: '导入与纠错' });
+    await panel.getByLabel('导入到基金份额', { exact: true }).click();
+    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: new RegExp(`${fundName}.*· B ·`) }).click();
+    const importName = `浏览器模拟净值-${suffix}.csv`;
+    const originalImport = Buffer.from('日期,数值\n2026-02-01,1.25\ninvalid,1.5\n');
+    await panel.locator('input[type=file]').setInputFiles({ name: importName, mimeType: 'text/csv', buffer: originalImport });
+    await panel.getByRole('button', { name: '读取文件并暂存' }).click();
+    await panel.getByText('等待映射', { exact: true }).waitFor();
+    const selectors = panel.locator('.ant-select');
+    await selectors.nth(0).click();
+    await page.locator('.ant-select-dropdown:visible').last().locator('.ant-select-item-option').filter({ hasText: /^日期$/ }).click();
+    await selectors.nth(1).click();
+    await page.locator('.ant-select-dropdown:visible').last().locator('.ant-select-item-option').filter({ hasText: /^数值$/ }).click();
+    await panel.getByRole('button', { name: '重新校验并预览' }).click();
+    await panel.getByText('需要修正', { exact: true }).waitFor();
+    await panel.getByLabel('第 3 行 日期', { exact: true }).fill('2026-02-02');
+    await panel.getByRole('button', { name: '重新校验并预览' }).click();
+    await panel.getByText('可提交', { exact: true }).waitFor();
+    await panel.getByRole('button', { name: '提交选中集合（2 行）' }).click();
+    await panel.getByText('已提交 2 行', { exact: true }).waitFor();
+    await page.screenshot({ path: '.runtime/browser-import.png', fullPage: true });
+    console.log('PASS browser: CSV staged, corrected, previewed and committed');
+    await page.reload();
+    await page.getByRole('tab', { name: '导入与纠错' }).click();
+    await panel.getByRole('row').filter({ hasText: importName }).getByRole('button', { name: '打开批次' }).click();
+    await panel.getByText('已提交 2 行', { exact: true }).waitFor();
+    const originalDownload = page.waitForEvent('download');
+    await panel.getByRole('button', { name: '下载原文件' }).click();
+    assert.deepEqual(fs.readFileSync(await (await originalDownload).path()), originalImport);
+    console.log('PASS browser: refresh restores committed batch and preserves downloadable uncorrected source');
+    await panel.getByRole('button', { name: '开始新批次' }).click();
+    await panel.getByLabel('导入到基金份额', { exact: true }).click();
+    await page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: new RegExp(`${fundName}.*· B ·`) }).click();
+    await panel.locator('input[type=file]').setInputFiles({ name: `浏览器模拟取消-${suffix}.csv`, mimeType: 'text/csv', buffer: Buffer.from('日期,数值\n2060-01-01,9.99\n') });
+    await panel.getByRole('button', { name: '读取文件并暂存' }).click();
+    await panel.getByText('等待映射', { exact: true }).waitFor();
+    await panel.getByRole('button', { name: '取消批次' }).click();
+    await saved('取消批次');
+    await panel.getByText('批次已取消，没有提交业务数据', { exact: true }).waitFor();
+    console.log('PASS browser: cancellation closes an uncommitted import batch');
+    await page.getByRole('tab', { name: '字段候选配置' }).click();
+    await page.getByText('只维护候选值，不修改字段 schema', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '维护候选值' }).first().click();
+    await dialog().getByText('候选集已由业务确认，可用于正式录入', { exact: true }).waitFor();
+    assert.equal(await dialog().getByRole('checkbox').isChecked(), false, 'Unconfirmed source choices must stay unconfirmed');
+    await dialog().getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    await page.screenshot({ path: '.runtime/browser-options.png', fullPage: true });
+    console.log('PASS browser: source choices and confirmation state visible');
+    const fundRow = (await apiCall('list?table=funds&page_size=200')).find(row => row.short_name === fundName);
+    const aggregate = await apiCall(`fund?id=${fundRow.id}`);
+    const share = aggregate.share_classes.find(row => row.class_label === 'B');
+    for (const [type, button, input, expected, column, header] of [
+      ['nav', '录入净值', '123456789012345.12345678', '123456789012345.12345678', 'nav_per_unit', '单位净值'],
+      ['returns', '录入收益', '0.000001', '0.00000001', 'mtd_return', 'MTD收益（比例值）'],
+    ]) {
+      await page.getByRole('tab', { name: '净值与收益' }).click();
+      await page.getByRole('button', { name: button, exact: true }).click();
+      await choose('基金份额', new RegExp(`${fundName}.*· B ·`));
+      await dialog().getByLabel('日期', { exact: true }).fill('2034-01-01');
+      await dialog().getByLabel('数值（收益率按百分数填写）', { exact: true }).fill(input);
+      await saved(/^保\s*存$/);
+      const table = type === 'nav' ? 'fund_navs' : 'fund_returns';
+      const record = (await apiCall(`list?table=${table}&page_size=200`)).find(row => row.share_class_id === share.id && row[type === 'nav' ? 'nav_date' : 'return_date'] === '2034-01-01');
+      assert.equal(record[column], expected);
+      const exported = await fetch(`http://127.0.0.1:13000/api/finance:exportSeries?data_type=${type}&share_class_id=${share.id}`, { headers });
+      assert.equal(exported.status, 200);
+      const file = Buffer.from(await exported.arrayBuffer()).toString('base64');
+      const staged = await apiCall('stageImport', { original_name: '浏览器精度往返.xlsx', content_base64: file, data_type: type, share_class_id: share.id });
+      const batch = await apiCall(`importBatch?id=${staged.batch_id}`);
+      const checked = await apiCall('previewImport', { batch_id: staged.batch_id, technical_revision: batch.batch.technical_revision, mapping: { date: '日期', value: header, ...(type === 'returns' ? { value_mode: 'ratio' } : {}) } });
+      const ready = await apiCall(`importBatch?id=${checked.batch_id}`);
+      await apiCall('commitImport', { batch_id: checked.batch_id, technical_revision: ready.batch.technical_revision, preview_token: ready.batch.preview.token });
+      const restored = (await apiCall(`list?table=${table}&page_size=200`)).find(row => row.id === record.id);
+      assert.equal(restored[column], expected);
+      console.log(`PASS browser: ${type} form, API, Excel export and reimport preserve ${expected}`);
+    }
+    await page.getByRole('tab', { name: '客户与主体' }).click();
+    await page.getByRole('button', { name: entityNames[0], exact: true }).click();
+    await dialog().getByLabel('常用名', { exact: true }).fill('浏览器修改后的常用名');
+    await dialog().getByText('下次 CDD 截止日期：2027-02-27', { exact: true }).waitFor();
+    await saved('保存投资主体');
+    await page.getByRole('row').filter({ hasText: entityNames[0] }).getByRole('cell', { name: '浏览器修改后的常用名', exact: true }).waitFor();
+    console.log('PASS browser: entity edit and CDD deadline');
+    await page.getByRole('tab', { name: '基金与份额' }).click();
+    const fundTableRow = page.getByRole('tabpanel', { name: '基金与份额' }).getByRole('row').filter({ hasText: fundName });
+    await fundTableRow.getByRole('button', { name: /查看历史/ }).click();
+    await dialog().getByText('保存时的基金资料，只读查看', { exact: true }).waitFor();
+    await page.screenshot({ path: '.runtime/browser-versions.png', fullPage: true, animations: 'disabled' });
+    await dialog().getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    console.log('PASS browser: read-only fund history');
+    await fundTableRow.getByRole('button', { name: /删\s*除/, exact: true }).click();
+    await saved('确认删除');
+    await fundTableRow.getByText('已删除', { exact: true }).waitFor();
+    assert.equal((await apiCall(`fund?id=${fundRow.id}`)).fund.is_deleted, true);
+    await fundTableRow.getByRole('button', { name: /恢\s*复/, exact: true }).click();
+    await saved(/恢\s*复/);
+    await fundTableRow.getByText('有效', { exact: true }).waitFor();
+    console.log('PASS browser: fund soft delete and restore');
+    for (const label of ['停用', '恢复']) {
+      await fundTableRow.getByRole('button', { name: '份额状态', exact: true }).click();
+      const classRow = dialog().getByRole('row').filter({ has: page.getByRole('cell', { name: 'B', exact: true }) });
+      await classRow.getByRole('button', { name: label === '停用' ? /停\s*用/ : /恢\s*复/ }).click();
+      await saved(/确\s*定/);
+    }
+    const versioned = await apiCall(`versions?fund_id=${fundRow.id}`);
+    assert.equal(versioned.length, 3);
+    assert.equal(versioned[1].snapshot.share_classes.find(row => row.class_label === 'B').is_deleted, true);
+    assert.equal(versioned[0].snapshot.share_classes.find(row => row.class_label === 'B').is_deleted, false);
+    console.log('PASS browser: share-class state adds one preserved fund version per action');
+    await page.getByRole('tab', { name: '净值与收益' }).click();
+    await page.getByRole('tab', { name: '净值', exact: true }).click();
+    const navRow = page.getByRole('tabpanel', { name: '净值', exact: true }).getByRole('row').filter({ hasText: new RegExp(`${fundName}.*· A ·`) }).filter({ hasText: '2026-01-03' });
+    await navRow.getByRole('button', { name: /删\s*除/, exact: true }).click();
+    await saved('确认删除');
+    const missing = (await apiCall('positions')).find(row => row.entity_name === entityNames[0] && row.class_label === 'A');
+    assert.equal(missing.units, '70'); assert.equal(missing.market_value, null);
+    console.log('PASS browser: delete last NAV preserves units and reports missing market value');
+    await page.getByRole('tab', { name: '基准', exact: true }).click();
+    await page.getByRole('button', { name: '新建基准', exact: true }).click();
+    const benchmarkName = `浏览器模拟基准-${suffix}`;
+    await dialog().getByLabel('基准名称', { exact: true }).fill(benchmarkName);
+    await saved('保存基准定义');
+    await page.getByRole('button', { name: '录入基准数值', exact: true }).click();
+    await choose('基准', benchmarkName);
+    await dialog().getByLabel('日期', { exact: true }).fill('2026-01-01');
+    await dialog().getByLabel('基准数值', { exact: true }).fill('123.4567890123456789');
+    await saved('保存基准数值');
+    await page.getByRole('row').filter({ hasText: benchmarkName }).getByRole('cell', { name: '123.4567890123456789', exact: true }).waitFor();
+    await page.screenshot({ path: '.runtime/browser-benchmarks.png', fullPage: true, animations: 'disabled' });
+    console.log('PASS browser: benchmark definition and exact date value');
+    await page.getByRole('tab', { name: '基金与份额' }).click();
+    await fundTableRow.getByRole('button', { name: /文\s*档/, exact: true }).click();
+    const documentPanel = page.getByRole('tabpanel', { name: '文档', exact: true });
+    await documentPanel.getByRole('combobox', { name: '文档类型', exact: true }).focus();
+    await documentPanel.getByRole('combobox', { name: '文档类型', exact: true }).press('ArrowDown');
+    await page.locator('.ant-select-dropdown:visible').last().locator('.ant-select-item-option:visible').first().click();
+    const documentContent = Buffer.from(`浏览器模拟文档-${suffix}\n只用于验证上传和下载。`);
+    const documentName = `浏览器模拟文档-${suffix}.txt`;
+    await documentPanel.locator('input[type=file]').first().setInputFiles({ name: documentName, mimeType: 'text/plain', buffer: documentContent });
+    await documentPanel.getByRole('button', { name: '上传并关联', exact: true }).click();
+    const documentRow = documentPanel.getByRole('row').filter({ has: page.getByRole('cell', { name: documentName, exact: true }) });
+    await documentRow.getByText('可用', { exact: true }).waitFor();
+    const downloadEvent = page.waitForEvent('download');
+    await documentRow.getByRole('button', { name: /下\s*载/, exact: true }).click();
+    const download = await downloadEvent;
+    assert.equal(download.suggestedFilename(), documentName);
+    assert.deepEqual(fs.readFileSync(await download.path()), documentContent);
+    await page.screenshot({ path: '.runtime/browser-documents.png', fullPage: true, animations: 'disabled' });
+    console.log('PASS browser: fund document upload and protected exact-byte download');
+    await page.reload();
+    await page.getByRole('tab', { name: '基金与份额' }).waitFor();
+    await fundTableRow.getByRole('button', { name: /文\s*档/, exact: true }).click();
+    await documentRow.getByText('可用', { exact: true }).waitFor();
+    await documentPanel.getByText('我的最近文件任务', { exact: true }).waitFor();
+    await documentRow.getByRole('button', { name: /删\s*除/, exact: true }).click();
+    await saved('确认删除');
+    await documentRow.waitFor({ state: 'hidden' });
+    assert.equal((await apiCall(`documents?fund_id=${fundRow.id}`)).length, 0);
+    assert.equal((await apiCall(`versions?fund_id=${fundRow.id}`)).length, 3);
+    console.log('PASS browser: document task reload and physical deletion do not add fund versions');
+    await page.getByRole('tab', { name: '申赎录入' }).click();
+    const originalTrade = page.getByRole('row').filter({ hasText: entityNames[0] }).filter({ hasText: '初次申购' });
+    await originalTrade.getByRole('button', { name: /修\s*改/, exact: true }).click();
+    await dialog().getByLabel('确认日期', { exact: true }).fill('2026-01-03');
+    await dialog().getByRole('button', { name: '保存并生效' }).click();
+    await dialog().getByText(/累计份额为负/).waitFor();
+    await dialog().getByRole('button', { name: 'Close', exact: true }).click();
+    await dialog().getByRole('button', { name: '放弃本次修改', exact: true }).click();
+    const withdrawalRow = page.getByRole('row').filter({ hasText: entityNames[0] }).filter({ hasText: '赎回' });
+    await withdrawalRow.getByRole('button', { name: /修\s*改/, exact: true }).click();
+    await dialog().getByLabel('确认份额', { exact: true }).fill('20');
+    await dialog().getByLabel('费率（%，输入 2 表示 2%）', { exact: true }).fill('NaN');
+    await dialog().getByRole('button', { name: '保存并生效' }).click();
+    await dialog().getByText(/有限十进制字符串/).waitFor();
+    await dialog().getByLabel('费率（%，输入 2 表示 2%）', { exact: true }).fill('2');
+    await choose('币种', 'HKD');
+    await dialog().getByText(/交易币种与份额币种不同/).waitFor();
+    await saved('保存并生效');
+    assert.equal((await apiCall('positions')).find(row => row.entity_name === entityNames[0]).units, '80');
+    console.log('PASS browser: trade edit rejects past shortage and accepts manual cross-currency facts');
+    await page.getByRole('button', { name: '录入申赎' }).click();
+    await choose('投资主体', entityNames[0]);
+    await choose('基金份额', new RegExp(`${fundName}.*· A ·`));
+    await choose('交易类型', '初次申购');
+    await dialog().getByLabel('确认日期', { exact: true }).fill('2026-01-01');
+    await dialog().getByLabel('确认份额', { exact: true }).fill('100');
+    await dialog().getByLabel('金额', { exact: true }).fill('123.456789');
+    await dialog().getByRole('button', { name: '保存并生效' }).click();
+    await dialog().getByText('疑似重复交易', { exact: true }).waitFor();
+    let interrupted = false;
+    await page.route('**/api/finance:saveTrade', async route => {
+      if (!interrupted && route.request().postDataJSON()?.duplicate_confirmation) {
+        interrupted = true;
+        const response = await route.fetch(); assert.equal(response.status(), 200);
+        await route.abort('failed');
+      } else await route.continue();
+    });
+    await dialog().getByRole('button', { name: '确认为另一笔并保存' }).click();
+    await page.getByText('疑似重复交易', { exact: true }).waitFor({ state: 'hidden' });
+    await dialog().getByText(/连接中断/).waitFor();
+    await saved('保存并生效');
+    await page.unroute('**/api/finance:saveTrade');
+    assert.equal(interrupted, true);
+    assert.equal((await apiCall('positions')).find(row => row.entity_name === entityNames[0]).units, '180');
+    console.log('PASS browser: explicit duplicate confirmation preserves two real identical subscriptions');
+    console.log('PASS browser: lost response retry retains duplicate confirmation and original request key');
+    for (const [index, value] of ['1', '3'].entries()) await apiCall('saveSeries', { data_type: 'nav', expected_revision: null, values: { share_class_id: aggregate.share_classes[index].id, nav_date: '2026-04-01', nav_per_unit: value } });
+    await page.getByRole('tab', { name: '基金与份额' }).click();
+    await page.getByRole('button', { name: '新建基金' }).click();
+    await choose('基金类型', '自营基金');
+    await dialog().getByRole('button', { name: '填入模拟示例（两份额）' }).click();
+    const parentName = `浏览器模拟自营-${suffix}`;
+    await dialog().getByLabel('基金简称', { exact: true }).fill(parentName);
+    await dialog().getByRole('button', { name: '添加一组成分清单' }).click();
+    await dialog().getByLabel('第 1 组估值日期', { exact: true }).fill('2026-04-02');
+    await choose('第 1 组成分份额 1', new RegExp(`${fundName}.*· A ·`));
+    await dialog().getByLabel('成分份额', { exact: true }).nth(0).fill('100');
+    await dialog().getByRole('button', { name: '为第 1 组添加成分行' }).click();
+    await choose('第 1 组成分份额 2', new RegExp(`${fundName}.*· B ·`));
+    await dialog().getByLabel('成分份额', { exact: true }).nth(1).fill('100');
+    await saved('保存基金资料版本');
+    const parentTableRow = page.getByRole('tabpanel', { name: '基金与份额' }).getByRole('row').filter({ hasText: parentName });
+    await parentTableRow.getByRole('button', { name: /成\s*分/, exact: true }).click();
+    const compositionPanel = page.getByRole('tabpanel', { name: '成分核对' });
+    await compositionPanel.getByText('25.00%', { exact: true }).waitFor();
+    await compositionPanel.getByText('75.00%', { exact: true }).waitFor();
+    await page.screenshot({ path: '.runtime/browser-compositions.png', fullPage: true, animations: 'disabled' });
+    console.log('PASS browser: proprietary composition created with the fund, weights 25% and 75%');
+    await compositionPanel.getByRole('button', { name: '编辑基金及成分' }).click();
+    await dialog().getByLabel('成分份额', { exact: true }).nth(0).fill('200');
+    await dialog().getByRole('button', { name: '保存基金资料版本' }).click();
+    await dialog().getByText('核对成分清单变更', { exact: true }).waitFor();
+    await saved('确认保存资料版本');
+    const parentRow = (await apiCall('list?table=funds&page_size=200')).find(row => row.short_name === parentName);
+    const parentVersions = await apiCall(`versions?fund_id=${parentRow.id}`);
+    assert.equal(parentVersions.length, 2);
+    assert.ok(parentVersions[1].snapshot.compositions[0].items.every(row => row.units === '100'));
+    const sourceNav = (await apiCall('list?table=fund_navs&page_size=200')).find(row => row.share_class_id === aggregate.share_classes[0].id && row.nav_date === '2026-04-01');
+    await apiCall('deleteSeries', { data_type: 'nav', id: sourceNav.id, technical_revision: sourceNav.technical_revision });
+    await compositionPanel.getByRole('button', { name: '刷新成分' }).click();
+    await compositionPanel.getByText('整组权重暂不计算', { exact: true }).waitFor();
+    assert.ok((await apiCall(`compositions?fund_id=${parentRow.id}`)).compositions[0].items.every(row => row.weight === null));
+    console.log('PASS browser: composition replacement previews changes, adds one version and reports missing NAV');
+    assert.deepEqual(errors, []);
+    fs.writeFileSync('.runtime/browser-smoke-result.json', JSON.stringify({ passed: true, fundName, parentName, entityNames, timestamp: new Date().toISOString(), checks: 24 }, null, 2));
+  } catch (error) {
+    await page.screenshot({ path: '.runtime/browser-failure.png', fullPage: true });
+    console.error((await page.locator('body').innerText()).slice(-2200));
+    throw error;
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error.message); process.exitCode = 1; });

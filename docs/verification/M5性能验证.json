@@ -1,0 +1,177 @@
+{
+  "executed_at": "2026-10-13T18:34:33.605Z",
+  "duration_ms": 42929,
+  "simulated": true,
+  "isolated_database": true,
+  "isolated_storage": true,
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "plugin": "0.1.0",
+    "node": "v24.19.0",
+    "postgres": "17.9 (Homebrew)",
+    "os": "darwin",
+    "arch": "arm64",
+    "cpu_model": "Apple M4 Pro",
+    "logical_cpus": 12,
+    "memory_gib": 48
+  },
+  "scale": {
+    "transactions": 100000,
+    "navs": 300000,
+    "funds": 20,
+    "share_classes": 100,
+    "entities": 100,
+    "accounts": 1000,
+    "trades_per_account": 100,
+    "concurrent_sessions": 5,
+    "added_measured_trades": 100,
+    "added_measured_navs": 100
+  },
+  "metrics": {
+    "http_trade_list": {
+      "samples": 100,
+      "p50_ms": 64,
+      "p95_ms": 71,
+      "max_ms": 94,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_nav_list": {
+      "samples": 100,
+      "p50_ms": 66,
+      "p95_ms": 76,
+      "max_ms": 98,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_entity_positions": {
+      "samples": 100,
+      "p50_ms": 8,
+      "p95_ms": 13,
+      "max_ms": 17,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_all_positions": {
+      "samples": 100,
+      "p50_ms": 34,
+      "p95_ms": 43,
+      "max_ms": 52,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_trade_save": {
+      "samples": 100,
+      "p50_ms": 21,
+      "p95_ms": 30,
+      "max_ms": 44,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_nav_save": {
+      "samples": 100,
+      "p50_ms": 12,
+      "p95_ms": 21,
+      "max_ms": 24,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "http_import_ack": {
+      "samples": 5,
+      "p50_ms": 39,
+      "p95_ms": 72,
+      "max_ms": 72,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "import_parse_ready": {
+      "samples": 5,
+      "p50_ms": 2230,
+      "p95_ms": 2848,
+      "max_ms": 2848,
+      "target_p95_ms": null,
+      "target_met": null
+    },
+    "http_import_preview": {
+      "samples": 5,
+      "p50_ms": 6193,
+      "p95_ms": 9172,
+      "max_ms": 9172,
+      "target_p95_ms": 30000,
+      "target_met": true
+    },
+    "browser_cold_application": {
+      "samples": 5,
+      "p50_ms": 2640,
+      "p95_ms": 2649,
+      "max_ms": 2649,
+      "target_p95_ms": null,
+      "target_met": null
+    },
+    "browser_first_trade_list": {
+      "samples": 5,
+      "p50_ms": 201,
+      "p95_ms": 234,
+      "max_ms": 234,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "browser_refresh_trade_list": {
+      "samples": 100,
+      "p50_ms": 150,
+      "p95_ms": 156,
+      "max_ms": 183,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "browser_first_nav_list": {
+      "samples": 5,
+      "p50_ms": 167,
+      "p95_ms": 182,
+      "max_ms": 182,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "browser_refresh_nav_list": {
+      "samples": 100,
+      "p50_ms": 133,
+      "p95_ms": 150,
+      "max_ms": 167,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "browser_first_positions": {
+      "samples": 5,
+      "p50_ms": 166,
+      "p95_ms": 168,
+      "max_ms": 168,
+      "target_p95_ms": 2000,
+      "target_met": true
+    },
+    "browser_refresh_positions": {
+      "samples": 100,
+      "p50_ms": 100,
+      "p95_ms": 102,
+      "max_ms": 135,
+      "target_p95_ms": 2000,
+      "target_met": true
+    }
+  },
+  "passed": true,
+  "page_errors": [],
+  "method": [
+    "五个独立录入员账号，每会话顺序请求，同时运行；每项读写 100 个测量样本",
+    "每个 HTTP 读取在计时前各预热一次；保存没有预热",
+    "一万行预览五份文件同时开始，五个样本的 P95 等于最大值；不将其解释为长期容量结论",
+    "浏览器使用五个独立 Chrome 上下文，首次应用打开单独记录；列表首次进入各五个样本，刷新到渲染完成各一百个样本",
+    "P95 使用最近秩法；时间包含 localhost HTTP 往返，浏览器项另包含布局与两次 animation frame",
+    "大规模数据通过隔离库 SQL 夹具准备，测量中的写入全部经过真实 Finance HTTP 领域动作",
+    "这是当前单机与分布的技术基准，不能外推为生产网络、冷启动或任意单账户交易规模的保证"
+  ],
+  "source_sha256": {
+    "tests/performance.ts": "2f0da47d979253ebea6e8b27660f7a37cd1e731150a352c767f08ea4ee7fe7fb",
+    "tests/isolated-app.ts": "b9325ce9f56acbc2601cde7da6881eae5c45ae01a21f52b3cdb890b177a001c4",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/queries.ts": "65bfb3366718211bfaa42fc37332b1f239870566471ac574529d13de5233b156",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/service.ts": "ebbe1d78b30cbad100417d4d4cb589a800a0b347fea48d95048ce7868fe84980"
+  }
+}

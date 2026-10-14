@@ -1,0 +1,55 @@
+{
+  "executed_at": "2026-10-13T17:12:25.122739+00:00",
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "node": "24.19.0",
+    "postgres": "17.9",
+    "database_test": "finance_test",
+    "browser": "Chrome / Playwright",
+    "data": "模拟数据"
+  },
+  "scope": "18 个当前业务表和只读持仓导出；净值、收益、基准数值交换再导入",
+  "new_checks": {
+    "database": 7,
+    "http": 1,
+    "browser": 4
+  },
+  "current_regression": {
+    "domain_and_database": 100,
+    "http": 17,
+    "browser": 58,
+    "build": "passed",
+    "install": "沿用此前独立安装 1 项；本轮未重复"
+  },
+  "verified": [
+    "业务表白名单、所有字段文本单元格、内部 ID、币种与日期、私有存储路径排除",
+    "空值编码、空字符串、前导零、公式形式文本、反斜杠、长小数；超过 Excel 字段限制明确报错",
+    "默认保留删除、停用与撤销记录；筛选支持对象、业务日期及适用状态，不接受任意分页或查询",
+    "持仓、CDD 和成分权重复用现有计算规则，计算字段标记只读",
+    "10,001 条记录全部导出且唯一，分为两个不超过导入上限的 Excel；并发修改不混入同一快照",
+    "三类时序交换再导入保留 ID、日期、精确数值及未知标记；不变记录保留修订和来源",
+    "修改日期、缺失 ID、错误类型、只读列重映射和缺失格式说明不能静默提交",
+    "只读及配置角色可下载，不能导入；无权限或匿名不能导出业务数据",
+    "真实浏览器下载、自动映射、日期冲突、修正原记录和缺净值持仓空值"
+  ],
+  "screenshots": [
+    "M4业务导出.png",
+    "M4导出再导入.png"
+  ],
+  "remaining": [
+    "主数据、主体多选、交易、成分及基准定义等交换格式的再次导入适配；保留子记录 ID 及状态语义",
+    "文档元数据不包含原文件；文件仍使用受控下载与上传，不把表格导入当作备份恢复",
+    "公式缓存／XLS 精度诊断、解析任务及原件清理、任务恢复完善",
+    "M5 全部业务验收、规定规模性能、备份与隔离恢复、真实业务试用"
+  ],
+  "source_sha256": {
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/export.ts": "c7cca01edb35de4d2a1a990e74650ad9520e4ad38baeaff8af1f8dbde56f72d5",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/exports.ts": "f6a1367276aa79c10c51e8b2c9d232dbf40d074f966d3159021849c1da7259fc",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/imports.ts": "544ffe7377b92ac2294e7e394aaa7d450116b6ec08ad62d16550150bf0f7c224",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/series-imports.ts": "8b228dea049bb770439ed8842adb580effd0db323ccf4d6bdd7b04c079fe430b",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/queries.ts": "65bfb3366718211bfaa42fc37332b1f239870566471ac574529d13de5233b156",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/plugin.ts": "d7cbd64765e57dd3b55406dc070bde476dada9eb45ee1d7b439074dfdab380d3",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ExportWorkspace.tsx": "0b3e07cadfe9847ae1e331cf18e9142400614495d19d9aa5d7696b16a19d3ad8",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ImportWorkspace.tsx": "26ce3871f3ba8144189dc0e06e57e4fa6442e458dc7756cca050673f43ae7676"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "executed_at": "2026-10-13T18:05:40.613286+00:00",
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "node": "24.19.0",
+    "postgres": "17.9",
+    "database_test": "finance_test",
+    "browser": "Chrome / Playwright",
+    "data": "模拟数据"
+  },
+  "scope": "14 个主数据表交换再导入；18 个业务表统一自动识别入口",
+  "new_checks": {
+    "database": 11,
+    "http": 1,
+    "browser": 5
+  },
+  "current_regression": {
+    "domain_and_database": 121,
+    "http": 19,
+    "browser": 49,
+    "build": "passed",
+    "historical_browser": 17,
+    "install": "历史隔离安装 1 项，本轮未执行"
+  },
+  "verified": [
+    "14 个主数据表均完成原样交换往返，稳定 ID、空值、精确十进制、日期、复合字段及文本保留",
+    "18 个业务表通过通用入口自动识别，时序与交易继续使用原领域流程；普通文件及只读持仓拒绝该入口",
+    "固定映射不可转写只读列；主键必填，固定关联及删除状态不可由交换文件改变",
+    "同一基金按选中行聚合保存一个资料版本，同键重试不重复；未变化的其他资料字段及子记录保留",
+    "成分先确认整组前后差异，但只修改选中 ID；未选中明细、ID、时间和修订保留",
+    "主体修改保留协议与产品关联；协议及产品支持最终集合互换且 ID 不变，重复与 n/a 互斥拒绝",
+    "客户编号改名先确认影响主体数，保留分组 ID；关联主体修订递增，不能合并已有客户分组",
+    "文档只修改分类，原文件名、大小、上传时间、存储及文件绑定不变",
+    "预览后记录变化、原本空闲 ISIN 被占用或客户新增主体会使预览失效；重新预览需重新确认影响",
+    "后半批写入失败回滚全部修改及请求凭据，随后同键重试成功",
+    "真实 HTTP 验证读写角色、批次所有者和幂等；Chrome 五段新增流程通过，两个确认弹窗截图已查看"
+  ],
+  "browser_result": {
+    "passed": true,
+    "checks": 5,
+    "simulated": true,
+    "page_errors": [],
+    "timestamp": "2026-10-13T18:04:37.956Z",
+    "fund_id": "d8f09c22-b8e0-4140-8698-e7735ca737d0",
+    "parent_fund_id": "82dfda48-d120-4e92-90b1-281d98d73d43",
+    "entity_id": "4786deb8-10f9-4e7b-b90a-81009268af91"
+  },
+  "screenshots": [
+    "M4主数据交换成分确认.png",
+    "M4主数据交换客户确认.png"
+  ],
+  "remaining": [
+    "公式缓存与 XLS 数字单元格精度诊断",
+    "解析任务恢复及原件、残片清理",
+    "M5 A01—A42 逐项验收、规定规模性能、隔离备份恢复、部署及真实业务试用"
+  ],
+  "source_sha256": {
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/main-exchange-imports.ts": "1305b846fa4e6fa2867e0c198ee7d182a39228ce56c305c1cfe18077aa728bdc",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/service.ts": "ebbe1d78b30cbad100417d4d4cb589a800a0b347fea48d95048ce7868fe84980",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/imports.ts": "c37b92e997c71dc76de82bd261954a1823b095a2d73a0f5b7f9bdd8dd194682d",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/export.ts": "b13f2880e19fc8145c77f638ddfe270f46e7e474ac54d4d9094e27a6be790576",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ImportWorkspace.tsx": "72038fb01e77a51aa247cf411fea90ac5955cc86b67b94ebeeaead409b88e6d2",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/MainExchangeControls.tsx": "7d42257be2b4e8f9fc24c4917ab6cd818f8f15f92b0b83e5a04ef13f165159a6",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/MainImportControls.tsx": "87c9956181014ee3578dfd185be35270995f1e856149f9c601775779de929cda",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ExportWorkspace.tsx": "f2c0431e6f8e54fca85b7be45d71dbe48ea580022e9e406bdefe5befe35f03bf",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/exports.ts": "8bd4b220fa33dba49192fc64435980f371111ed1b7dfc0979f10c6e1c870a939",
+    "tests/database.test.ts": "27a626157ef4fc6fde0ac9f8bc4191c7d7963489835eb2a9bd188ad539242162",
+    "tests/api.test.ts": "30d114196fa91c86fbd3edb5c6c568f66eecdf6c3a2615361fd6adaf0678c4de",
+    "tests/browser-main-exchange.ts": "24fc30a64432650c4e99951b1c235ef2fbaabc1a552221b432627a374a5d1940"
+  }
+}

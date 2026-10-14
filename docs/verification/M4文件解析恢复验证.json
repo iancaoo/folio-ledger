@@ -1,0 +1,70 @@
+{
+  "executed_at": "2026-10-13T18:35:25.523632+00:00",
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "node": "24.19.0",
+    "postgres": "17.9",
+    "database_test": "finance_test",
+    "browser": "Chrome / Playwright",
+    "data": "模拟数据"
+  },
+  "scope": "公式缓存与 XLS 精度诊断；后台解析、任务接管、公平恢复及孤立原件清理",
+  "new_checks": {
+    "database": 13,
+    "http": 1,
+    "browser": 3
+  },
+  "current_regression": {
+    "domain_and_database": 134,
+    "http": 20,
+    "browser": 52,
+    "historical_browser": 17,
+    "build": "passed",
+    "install": "历史隔离安装 1 项，本轮未重复"
+  },
+  "verified": [
+    "首表公式缺缓存、缓存过期、循环、外部引用、不支持的函数和错误单元格定位到工作表及单元格；整份解析失败，原件保留，无部分导入行",
+    "本表数值引用、加减乘除、括号、百分号及 SUM 的受支持子集可核验；除法只有在 40 位小数内得到精确商才接受，避免舍入和抵消错误；其他公式要求重新计算并转为数值",
+    "公式按 15 位有效数字比较缓存；入库候选仍使用文件缓存原数值，不保存重新计算结果；所有中间值、引用和递归设有限制",
+    "真实 BIFF8 XLS 公式缓存已验证；超过 15 位可靠范围的数字单元格拒绝，长精确文本可保留；无法恢复文件已丢失的位数",
+    "OOXML 原数值字面量和 1904 日期系统已验证，CSV 公式样式文本仍按文本处理",
+    "解析使用独立 worker 线程，CPU 工作不持数据库事务；解析期间取消立即生效，迟到结果不能恢复已取消批次",
+    "单 worker 60 秒超时、512 MB V8 堆上限；批次认领租期 120 秒，过期可接管，两个处理者不重复写入；线程退出后可重建",
+    "缺失上传与待解析文件分队恢复；60 个缺文件任务不会阻挡后续原件；文件任务按最近尝试顺序轮转，51 个任务故障验证通过",
+    "默认七天清理符合生成命名的孤立原件和暂存残片；已关联批次原件、最近文件、未知文件名和符号链接保留",
+    "旧未完成批次不能绕过新解析规则，下载原件后新建批次；历史纠错和已提交重试结果保留",
+    "真实 HTTP 重启后错误坐标保留，合法公式缓存可预览提交；浏览器三段新流程及 49 段相关回归通过，两张诊断截图已查看"
+  ],
+  "browser_result": {
+    "passed": true,
+    "checks": 3,
+    "simulated": true,
+    "page_errors": [],
+    "timestamp": "2026-10-13T18:30:32.474Z",
+    "fund_id": "80639fcb-ae91-43db-9416-621ee9f1ae84"
+  },
+  "screenshots": [
+    "M4公式缓存诊断.png",
+    "M4XLS精度诊断.png"
+  ],
+  "limits": [
+    "不提供完整 Excel 公式引擎；不支持或无法精确核验的公式需转为数值文件",
+    "单文件 10 MB、10000 行、100 列；仅首表",
+    "批次原件长期保留；原件业务保留周期仍待部署时确认",
+    "预览仍在请求事务内完成；一万行五会话性能与 M5 恢复验证进行中",
+    "真实业务配置、样例核对及上线试用未完成"
+  ],
+  "source_sha256": {
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/imports.ts": "67b4e2650aa40c4579bbe69675a94615595e3f6dbb12f4930fb5a246051ebeda",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/import-parser.ts": "647cc7cdb4ed88f71255124fcfa2df72f85d9137b9208631a42c0aa3a64973e6",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/workbook-validation.ts": "25b90bf6ba809e8971cf01367a248a882f97524aa9ce78f7f832b02c77ed89a3",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/import-parser-worker.ts": "ae848814ce45c78d28dce7889a37bf911040647464510a624ebf0b796adb7d6b",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/plugin.ts": "273acf144c7a7be7afd21137135790fc07841bc17b76e245693ccf1a71e5f38e",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/files.ts": "8457ebf2999f8aed91eac3be131977e2ff95dab9b0322ee9075309451870f0ba",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/import-file.ts": "7cc841f2c8b1a55adc4c7cf72e49cfebe647074c45af4d9beae43b3e9eafb2a0",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ImportWorkspace.tsx": "98d41f2a8578172f5550ea183cf979a81a31da3f524c4069f661e9d419b839a7",
+    "tests/database.test.ts": "f2108deaef3a1b3932eec9a72c04ad79020ff6ae62db85de1688a34bec9e9f29",
+    "tests/api.test.ts": "70105695267805b8829254e2a0152ecc3e1b4d6fdec1a98298eedf907bd8adf6",
+    "tests/browser-file-parser.ts": "5a0d3e251f7b38f2f412f9d81c3ac8d720f6ad6f8be2c42e84b223252ae13ac8"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "executed_at": "2026-10-13T18:45:01.071Z",
+  "passed": true,
+  "tests": 1,
+  "simulated": true,
+  "duration_ms": 18472,
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "postgres": "17.9",
+    "node": "v24.19.0",
+    "separate_database": true,
+    "separate_storage": true,
+    "source_app_stopped": true
+  },
+  "restored_finance_tables": 28,
+  "constraints": 90,
+  "checks": [
+    "运行中的应用拒绝备份；停止写入后数据库、原件、文档、暂存文件与密钥配套备份，SHA-256 核验通过",
+    "密钥单独受控保存；文件被修改后校验拒绝；恢复前需全部文件哈希一致",
+    "28 个 Finance 表逐行内容摘要与行数一致；全部约束、角色成员、页面菜单及迁移记录保留；AES 密钥一致",
+    "已有数据的目标库拒绝覆盖；原库及原文件保持隔离",
+    "固定版本升级及启动成功；70 份／87.5 市值、个人草稿、候选配置保留；原基金、交易、提交请求重试不重复",
+    "过期解析任务接管后精确值可提交；暂存上传自动恢复，缺失上传可补传，删除任务完成且不会误删原环境文件；重试无重复文档",
+    "恢复后可用原账号登录；私有文档字节一致，匿名下载与只读写入仍拒绝，批次原件所有者限制保留",
+    "真实浏览器恢复后页面入口、持仓列表及核心关联可访问，无页面运行错误"
+  ],
+  "fault_injection": "应用停止后在独立源库构造解析认领过期、上传已暂存／缺文件、删除未执行四个持久检查点；并非在真实用户数据上中断任务",
+  "limitations": [
+    "同机独立实例；生产主机、异机环境和异地介质尚未验收",
+    "只支持本项目单应用的 PostgreSQL 与本地 finance/uploads 存储；额外存储或子应用需扩展备份范围",
+    "密钥目录必须与数据备份分别受控保管；备份校验不是加密或签名",
+    "原始业务保留周期与生产每日备份调度需部署管理员确定"
+  ],
+  "files": [
+    "M5恢复后持仓.png"
+  ],
+  "source_sha256": {
+    "scripts/backup.py": "6ef522c893349f0269cef98a51255bff6b4d514d88c471147cf2b121618daa3a",
+    "tests/backup-restore.test.ts": "9f6f751ec65c65774855bcfb378a0c51d6dfb755a6450570d6deb50b853271cd",
+    "tests/isolated-app.ts": "b9325ce9f56acbc2601cde7da6881eae5c45ae01a21f52b3cdb890b177a001c4"
+  }
+}

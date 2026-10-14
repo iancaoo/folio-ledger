@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@docs/*": [
+        "docs/docs/*"
+      ],
+      "@@/*": [
+        ".dumi/tmp/*"
+      ],
+      "@finance/plugin-core/client": [
+        "packages/plugins/@finance/plugin-core/src/client"
+      ],
+      "@finance/plugin-core/client-v2": [
+        "packages/plugins/@finance/plugin-core/src/client-v2"
+      ],
+      "@finance/plugin-core/package.json": [
+        "packages/plugins/@finance/plugin-core/package.json"
+      ],
+      "@finance/plugin-core": [
+        "packages/plugins/@finance/plugin-core/src"
+      ]
+    }
+  }
+}

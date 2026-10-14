@@ -1,0 +1,53 @@
+{
+  "executed_at": "2026-10-13T17:38:51.871924+00:00",
+  "environment": {
+    "platform": "NocoBase 2.2.24",
+    "node": "24.19.0",
+    "postgres": "17.9",
+    "database_test": "finance_test",
+    "browser": "Chrome / Playwright",
+    "data": "模拟数据"
+  },
+  "scope": "主体多选和成分明细 ID 保留；交易交换再导入",
+  "new_checks": {
+    "database": 10,
+    "http": 1,
+    "browser": 3
+  },
+  "current_regression": {
+    "domain_and_database": 110,
+    "http": 18,
+    "browser": 61,
+    "build": "passed",
+    "install": "历史独立安装 1 项，本轮未执行"
+  },
+  "verified": [
+    "主体协议及产品只增删变化项，顺序调整不更换未变项的 ID 和时间",
+    "成分明细按同清单同份额保留 ID；未变项保持时间和修订，修改项递增修订，清单删除只移除实际缺少的项",
+    "基金每次明确保存仍新增一个资料版本，保留子记录 ID 不改变基金版本规则",
+    "交易交换沿用现有领域服务、整批最终持仓校验、重复交易确认及幂等提交",
+    "金额、费率、日期、空值、备注空白和反斜杠按原文本往返，修改保留原交易 ID",
+    "撤销状态不能通过交换导入改变；已撤销和归档父对象的未变记录仅核对，不写事实或来源",
+    "历史记录精确一致时无需改写事实满足新候选规则；任何业务修改仍须通过当前规则",
+    "混合批次只修改变化的有效记录；两条同日修改按最终集合校验；未变及撤销记录保留",
+    "预览后核对记录或持仓历史变化会失效，后半批失败回滚业务和凭据，同键重试不会重复提交",
+    "完整重跑已有浏览器流程，交易交换页面截图已查看"
+  ],
+  "screenshots": [
+    "M4交易交换预览.png"
+  ],
+  "remaining": [
+    "主数据、主体关联、成分和基准定义等其余表交换再导入适配；文档元数据仍需明确核对路径",
+    "公式缓存／XLS 精度诊断、解析任务和原件清理及恢复完善",
+    "M5 全量业务验收、规定规模性能、备份与隔离恢复、真实业务试用"
+  ],
+  "source_sha256": {
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/service.ts": "f95d6e82dd46178251c821cb0d8f77de72a99c9ce0929ce8f413ec3cd5c0ad77",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/trade-imports.ts": "2eeb39c6690367a8f25e3d857ab9de654a65dc313fc605b12689bc359b8a372d",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/imports.ts": "5f169123f240ab1b490fdf6669adaae90cd25378d62b0786bca50026a3e2ba5a",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/export.ts": "d03c5fe8a0b37628ee4713c64925cf57e6085e53545dd3ffd569bd290523adea",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ImportWorkspace.tsx": "ddbacdd5e1874aa2db13d7ff43bce979fa645d16d397667f34b2dcc3828ff8e1",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/client/ExportWorkspace.tsx": "f22270d697360e49ccc3bb1fe1ae007b1879fe105c86e54218eea9555004be7d",
+    "apps/nocobase/packages/plugins/@finance/plugin-core/src/server/exports.ts": "5754a1f3eb25e3797342a5894833f3a5bd527b094d7d069eb0b554d459d250bb"
+  }
+}

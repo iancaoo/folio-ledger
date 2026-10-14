@@ -1,0 +1,81 @@
+---
+title: "Create Record"
+description: "Use when a workflow must insert a new record into a collection, including values derived from trigger or upstream node variables."
+---
+
+# Create Record
+
+## Node Type
+
+`create`
+
+## Node Description
+Adds a new record to a specified data table, with fields assigned using workflow context variables.
+
+## Business Scenario Example
+Add an order log or related record after an order is submitted.
+
+## Configuration List
+| Field | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| collection | string | None | Yes | Target data table. The format matches the data source selector. For a single data source, write the collection name (e.g., `posts`). For data sources not main, use `dataSource:collection`. |
+| usingAssignFormSchema | boolean | false | Yes | Whether to use a custom assignment form (primarily affects the frontend configuration display). This option Should always be set to false for new configurations. |
+| params.values | object | {} | No | Field assignment object where keys are field names and values can be constants or variables. Unassigned fields will use their default value or `null`. String template concatenation is allowed only when the target field type is `string`; see [Common Conventions - variables in field assignments](../conventions/index.md#variables-in-field-assignments). |
+| params.appends | string[] | [] | No | List of relationship fields to pre-load. See [Common Conventions - appends](../conventions/index.md#the-appends-field-in-trigger-and-node-configuration). |
+
+### `params.values` Variable Assignment Rules
+
+String template concatenation is allowed only when the target collection field has type `string`. For all other field types, a variable expression must occupy the entire assigned value so that its original data type is preserved.
+
+Allowed:
+
+```json
+{
+  "title": "Order: {{$context.data.title}}",
+  "amount": "{{$context.data.amount}}"
+}
+```
+
+In this example, `title` must be a `string` field. Assuming `amount` is a numeric field, its variable remains the complete assigned value.
+
+Forbidden for a non-string field:
+
+```json
+{
+  "amount": "USD {{$context.data.amount}}"
+}
+```
+
+If a non-string field needs a transformed value, calculate it in an upstream `calculation`, `script`, `json-query`, or `json-variable-mapping` node, then assign that node's output as one pure variable. See [Common Conventions - variables in field assignments](../conventions/index.md#variables-in-field-assignments).
+
+## Branch Description
+
+Branches are not supported.
+
+## Test Support
+Not supported. This node cannot use CLI `workflow flow-nodes test` or HTTP `flow_nodes:test`, because the server-side instruction does not implement `test()`.
+
+## Example Configuration
+
+```json
+{
+  "collection": "orderLogs",
+  "usingAssignFormSchema": false,
+  "assignFormSchema": {},
+  "params": {
+    "values": {
+      "orderId": "{{$context.data.id}}",
+      "eventType": "{{$context.data.status}}",
+      "timestamp": "{{$context.date}}"
+    },
+    "appends": []
+  }
+}
+```
+
+## Output Variables
+The variable selector for this node is a tree array of `{ label, value, children? }`. At runtime, join the `value` segments with `.` and prepend `$jobsMapByNodeKey.<nodeKey>`.
+
+- Exposed root: the record created by this node.
+- The child tree follows the target collection schema, and `params.appends` adds nested association children under the created record.
+- Example references: `{{$jobsMapByNodeKey.create_log.id}}`, `{{$jobsMapByNodeKey.create_log.eventType}}`, `{{$jobsMapByNodeKey.create_log.creator.nickname}}`.
