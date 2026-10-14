@@ -1,0 +1,114 @@
+[
+  {
+    "key": "home",
+    "group": "工作台",
+    "title": "总览",
+    "icon": "DashboardOutlined",
+    "model": "FinanceHomeBlockModel"
+  },
+  {
+    "key": "drafts",
+    "group": "工作台",
+    "title": "个人草稿",
+    "icon": "FormOutlined",
+    "model": "FinanceDraftsBlockModel"
+  },
+  {
+    "key": "funds",
+    "group": "基金中心",
+    "title": "基金列表",
+    "icon": "FundOutlined",
+    "model": "FinanceFundsBlockModel"
+  },
+  {
+    "key": "series",
+    "group": "基金中心",
+    "title": "净值与收益",
+    "icon": "LineChartOutlined",
+    "model": "FinanceSeriesBlockModel"
+  },
+  {
+    "key": "compositions",
+    "group": "基金中心",
+    "title": "成分核对",
+    "icon": "ApartmentOutlined",
+    "model": "FinanceCompositionsBlockModel"
+  },
+  {
+    "key": "documents",
+    "group": "基金中心",
+    "title": "文档附件",
+    "icon": "FileOutlined",
+    "model": "FinanceDocumentsBlockModel"
+  },
+  {
+    "key": "entities",
+    "group": "客户中心",
+    "title": "客户与主体",
+    "icon": "TeamOutlined",
+    "model": "FinanceEntitiesBlockModel"
+  },
+  {
+    "key": "positions",
+    "group": "客户中心",
+    "title": "持仓核对",
+    "icon": "PieChartOutlined",
+    "model": "FinancePositionsBlockModel"
+  },
+  {
+    "key": "trades",
+    "group": "数据作业",
+    "title": "交易录入",
+    "icon": "SwapOutlined",
+    "model": "FinanceTradesBlockModel"
+  },
+  {
+    "key": "imports",
+    "group": "数据作业",
+    "title": "导入中心",
+    "icon": "ImportOutlined",
+    "model": "FinanceImportsBlockModel"
+  },
+  {
+    "key": "quality",
+    "group": "数据作业",
+    "title": "数据质量",
+    "icon": "CheckCircleOutlined",
+    "model": "FinanceQualityBlockModel"
+  },
+  {
+    "key": "export",
+    "group": "数据作业",
+    "title": "数据导出",
+    "icon": "ExportOutlined",
+    "model": "FinanceExportBlockModel"
+  },
+  {
+    "key": "settings",
+    "group": "业务设置",
+    "title": "设置概览",
+    "icon": "SettingOutlined",
+    "model": "FinanceSettingsBlockModel"
+  },
+  {
+    "key": "options",
+    "group": "业务设置",
+    "title": "字段候选配置",
+    "icon": "UnorderedListOutlined",
+    "model": "FinanceOptionsBlockModel"
+  },
+  {
+    "key": "benchmarks",
+    "group": "业务设置",
+    "title": "基准数据",
+    "icon": "LineChartOutlined",
+    "model": "FinanceBenchmarksBlockModel"
+  },
+  {
+    "key": "fund-register",
+    "group": "业务设置",
+    "title": "基金资料管理",
+    "icon": "DatabaseOutlined",
+    "model": "FinanceFundRegisterBlockModel"
+  }
+]

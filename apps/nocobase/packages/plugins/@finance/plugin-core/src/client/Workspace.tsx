@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Card, Col, Collapse, Form, Input, Modal, Row, Select, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppstoreOutlined, FundOutlined, TeamOutlined, SwapOutlined, ImportOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { Workbench, FundCenter, localToday } from './BusinessPages';
 import catalog from '../shared/field-catalog.json';
+import navigation from '../shared/navigation.json';
 import { decimal, Decimal, FinanceError } from '../shared/values';
 import './style.css';
 import { ImportWorkspace } from './ImportWorkspace';
@@ -66,28 +67,60 @@ function Fields({ table, prefix, kind, demo }: { table: string; prefix: any[]; k
   })}</Row>;
 }
 
-export function FinanceWorkspace() {
+export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {}) {
   const api = useAPIClient();
   const [route, setRoute] = useSearchParams();
   const { token } = theme.useToken();
-  const active = route.get('page') || 'home';
+  const routerNavigate = useNavigate();
+  const [nativePages, setNativePages] = useState<Record<string, string>>({});
+  useEffect(() => {
+    api.request({ url: 'desktopRoutes:listAccessible', params: { paginate: false } }).then(({ data }) => {
+      const flatten = (rows: any[]): any[] => rows.flatMap(row => [row, ...flatten(row.children || [])]);
+      const routes = flatten(data.data || []);
+      const pages: Record<string, string> = {};
+      for (const item of navigation) {
+        const matches = routes.filter(row => row.type === 'flowPage' && row.options?.financePage === item.key);
+        if (matches.length === 1 && matches[0].schemaUid) pages[item.key] = `/admin/${matches[0].schemaUid}`;
+      }
+      setNativePages(pages);
+    }).catch(() => { /* Business API permissions remain independent of native menu discovery. */ });
+  }, [api]);
+  const active = embeddedPage || route.get('page') || 'home';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(route.get('date') || '') ? route.get('date')! : localToday();
   const fundId = route.get('fund') || undefined;
   const fundSection = ['info', 'classes', 'nav', 'compositions', 'files'].includes(route.get('section') || '') ? route.get('section')! : 'info';
-  const navigate = (patch: Record<string, string | undefined>) => { const next = new URLSearchParams(route); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key); } setRoute(next); };
+  const navigate = (patch: Record<string, string | undefined>) => { const next = new URLSearchParams(route); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key); } const targetPage = patch.page || active;
+    if (nativePages[targetPage] && (!embeddedPage || targetPage !== active)) {
+      next.delete('page');
+      routerNavigate({ pathname: nativePages[targetPage], search: next.toString() });
+    } else if (embeddedPage && targetPage !== active) {
+      routerNavigate({ pathname: '/admin/finance', search: next.toString() });
+    } else {
+      if (embeddedPage) next.delete('page');
+      setRoute(next);
+    }
+  };
+  useEffect(() => {
+    if (!embeddedPage && route.get('legacy') !== '1' && nativePages[active]) {
+      const next = new URLSearchParams(route); next.delete('page');
+      routerNavigate({ pathname: nativePages[active], search: next.toString() }, { replace: true });
+    }
+  }, [embeddedPage, active, nativePages]);
   const setActive = (page: string) => navigate({ page });
   const setDate = (date: string) => navigate({ date });
   const openFund = (id: string, section = 'info', share?: string) => navigate({ page: 'funds', fund: id, section, share });
   const [navContext, setNavContext] = useState<any>();
-  const [documentFundId, setDocumentFundId] = useState<string>();
-  const [compositionFundId, setCompositionFundId] = useState<string>();
+  const documentFundId = route.get('documentFund') || undefined;
+  const setDocumentFundId = (id?: string) => navigate({ documentFund: id });
+  const compositionFundId = route.get('compositionFund') || undefined;
+  const setCompositionFundId = (id?: string) => navigate({ compositionFund: id });
   const [metadata, setMetadata] = useState<any>();
   const [summary, setSummary] = useState<any>({});
   const [refresh, setRefresh] = useState(0);
   const [tradeShare, setTradeShare] = useState<any>();
   const [compositionLabels, setCompositionLabels] = useState<Record<string, string>>({});
-  const [importTarget, setImportTarget] = useState<any>();
-  const [optionTarget, setOptionTarget] = useState<any>();
+  const importTarget = React.useMemo(() => route.get('batch') ? { batch_id: route.get('batch'), row_id: route.get('row') || undefined, source_row: route.get('sourceRow') ? Number(route.get('sourceRow')) : undefined, source_sheet: route.get('sourceSheet') || undefined, nonce: route.get('targetNonce') } : undefined, [route.toString()]);
+  const optionTarget = React.useMemo(() => route.get('option') ? { source_key: route.get('option'), nonce: route.get('targetNonce') } : undefined, [route.toString()]);
   const [entryFocus, setEntryFocus] = useState<any>();
   const [entryNotice, setEntryNotice] = useState<any>();
 
@@ -228,10 +261,10 @@ export function FinanceWorkspace() {
       const row=result.rows.find(row=>issue.record_table==='import_rows'?row.id===issue.record_id:row.source_row===issue.source_row && row.source_sheet===issue.source_sheet);
       Modal.info({title:result.batch.original_name,width:850,content:<><p>本人原批次，只读查看。{row?`${row.source_sheet} 第 ${row.source_row} 行`:result.batch.context.parse_error || '该批次没有可定位的行'}</p>{row&&<Table<Record<string,any>> rowKey="field" pagination={false} dataSource={Object.entries(row.raw).map(([field,value])=>({field,value,corrected:row.corrected?.[field]??value}))} columns={[{title:'原列名',dataIndex:'field'},{title:'原文件值',dataIndex:'value'},{title:'暂存修正值',dataIndex:'corrected'}]}/>}</>}); return;
     }
-    setImportTarget({ batch_id, row_id: issue.record_table==='import_rows'?issue.record_id:undefined, source_row:issue.source_row,source_sheet:issue.source_sheet, nonce: Date.now() }); setActive('imports');
+    navigate({ page: 'imports', batch: batch_id, row: issue.record_table === 'import_rows' ? issue.record_id : undefined, sourceRow: issue.source_row == null ? undefined : String(issue.source_row), sourceSheet: issue.source_sheet, targetNonce: String(Date.now()) });
   }
   async function resolveIssue(issue: any) {
-    if (issue.category==='options') { await refreshMetadata(); setOptionTarget({ source_key: issue.context.source_key, nonce: Date.now() }); setActive('options'); return; }
+    if (issue.category==='options') { await refreshMetadata(); navigate({ page: 'options', option: issue.context.source_key, targetNonce: String(Date.now()) }); return; }
     if (issue.category==='imports') { await openIssueSource(issue); return; }
     if (issue.code==='MISSING_NAV') { seriesForm.resetFields(); seriesForm.setFieldsValue({data_type:'nav',share_class_id:issue.share_class_id,date:issue.business_date}); open('series'); setEntryFocus(['value']); return; }
     if (issue.record_table==='composition_snapshots') {
@@ -260,7 +293,7 @@ export function FinanceWorkspace() {
     { key: 'drafts', label: '个人草稿', children: <DraftWorkspace read={read} save={save} resume={resumeDraft} refresh={refresh} canWrite={canWrite} /> },
     { key: 'imports', label: '导入与纠错', children: canWrite ? <ImportWorkspace save={save} target={importTarget} /> : <Alert type="info" message="当前角色只读，不能创建或提交导入批次" /> },
     { key: 'fund-register', label: '基金资料管理', children: <Card title="基金资料" extra={<Button type="primary" disabled={!canWrite} onClick={() => { fundForm.resetFields(); fundForm.setFieldsValue({ fund_kind: 'third_party', share_classes: [{ values: {}, terms: {} }] }); open('fund'); }}>新建基金</Button>}>
-      {businessTable('funds', '基金', [{ title: '基金简称', dataIndex: 'short_name', render: (text, row) => <Button type="link" onClick={() => editFund(row)}>{text}</Button> }, { title: '类型', dataIndex: 'fund_kind', render: value => value === 'third_party' ? '三方基金' : '自营基金' }, { title: 'LEI', dataIndex: 'lei' }, { title: '份额类别', render: (_, row) => <>{(row._share_classes || []).slice(0, 3).map(item => <Tag key={item.id}>{item.class_label || item.isin} · {item.currency}</Tag>)}{row._share_classes?.length > 3 && <Text type="secondary">共 {row._share_classes.length} 个份额，可从份额状态查看全部</Text>}</> }, { title: '资料版本', dataIndex: 'business_version', render: (value, row) => <Button type="link" onClick={async () => { setVersions(await read('versions', { fund_id: row.id })); setDialog('versions'); }}>V{value} · 查看历史</Button> }, { title: '状态', dataIndex: 'is_deleted', render: value => value ? <Tag>已删除</Tag> : <Tag color="green">有效</Tag> }, { title: '操作', render: (_, row) => <Space>{row.fund_kind === 'proprietary' && <Button type="link" onClick={() => { setCompositionFundId(row.id); setActive('compositions'); }}>成分</Button>}<Button type="link" onClick={() => { setDocumentFundId(row.id); setActive('documents'); }}>文档</Button><Button type="link" onClick={async () => { const aggregate = await read('fund', { id: row.id }); setEditing({ ...aggregate.fund, all_classes: aggregate.share_classes }); setDialog('classes'); }}>份额状态</Button><Button type="link" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('funds', row)}>{row.is_deleted ? '恢复' : '删除'}</Button></Space> }], [stateControl(), { key: 'fund_kind', label: '基金类型', options: [{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }] }])}
+      {businessTable('funds', '基金', [{ title: '基金简称', dataIndex: 'short_name', render: (text, row) => <Button type="link" onClick={() => editFund(row)}>{text}</Button> }, { title: '类型', dataIndex: 'fund_kind', render: value => value === 'third_party' ? '三方基金' : '自营基金' }, { title: 'LEI', dataIndex: 'lei' }, { title: '份额类别', render: (_, row) => <>{(row._share_classes || []).slice(0, 3).map(item => <Tag key={item.id}>{item.class_label || item.isin} · {item.currency}</Tag>)}{row._share_classes?.length > 3 && <Text type="secondary">共 {row._share_classes.length} 个份额，可从份额状态查看全部</Text>}</> }, { title: '资料版本', dataIndex: 'business_version', render: (value, row) => <Button type="link" onClick={async () => { setVersions(await read('versions', { fund_id: row.id })); setDialog('versions'); }}>V{value} · 查看历史</Button> }, { title: '状态', dataIndex: 'is_deleted', render: value => value ? <Tag>已删除</Tag> : <Tag color="green">有效</Tag> }, { title: '操作', render: (_, row) => <Space>{row.fund_kind === 'proprietary' && <Button type="link" onClick={() => { navigate({ page: 'compositions', compositionFund: row.id }); }}>成分</Button>}<Button type="link" onClick={() => { navigate({ page: 'documents', documentFund: row.id }); }}>文档</Button><Button type="link" onClick={async () => { const aggregate = await read('fund', { id: row.id }); setEditing({ ...aggregate.fund, all_classes: aggregate.share_classes }); setDialog('classes'); }}>份额状态</Button><Button type="link" danger={!row.is_deleted} disabled={!canWrite} onClick={() => changeDeletion('funds', row)}>{row.is_deleted ? '恢复' : '删除'}</Button></Space> }], [stateControl(), { key: 'fund_kind', label: '基金类型', options: [{ value: 'third_party', label: '三方基金' }, { value: 'proprietary', label: '自营基金' }] }])}
     </Card> },
     { key: 'entities', label: '客户与主体', children: <Card title="投资主体" extra={<Button type="primary" disabled={!canWrite} onClick={() => { entityForm.resetFields(); open('entity'); }}>新建主体</Button>}>
       <Text type="secondary">同一客户可有多个投资主体。申赎和持仓分别记在各主体名下。</Text>
@@ -307,19 +340,19 @@ export function FinanceWorkspace() {
   </div></Card> });
   const menu = [{ key: 'home', label: '工作台', icon: <AppstoreOutlined /> }, { key: 'funds', label: '基金中心', icon: <FundOutlined /> }, { key: 'entities', label: '客户中心', icon: <TeamOutlined /> }, { key: 'trades', label: '交易录入', icon: <SwapOutlined /> }, { key: 'imports', label: '导入中心', icon: <ImportOutlined /> }, { key: 'quality', label: '数据质量', icon: <CheckCircleOutlined /> }, { key: 'settings', label: '系统设置', icon: <SettingOutlined /> }];
   const group = ['series', 'documents', 'compositions'].includes(active) ? 'funds' : active === 'positions' ? 'entities' : ['options', 'benchmarks', 'fund-register'].includes(active) ? 'settings' : active;
-  const pageTitle = menu.find(item => item.key === group)?.label || tabs.find(item => item.key === active)?.label || '工作台';
+  const pageTitle = (embeddedPage && navigation.find(item => item.key === embeddedPage)?.title) || menu.find(item => item.key === group)?.label || tabs.find(item => item.key === active)?.label || '工作台';
   useEffect(() => { document.title = `${pageTitle} · Finance`; }, [pageTitle]);
-  return <OptionsContext.Provider value={metadata?.options || []}><main className="finance-workspace" style={{ '--finance-primary': token.colorPrimary, '--finance-primary-bg': token.colorPrimaryBg, '--finance-bg': token.colorBgLayout, '--finance-panel': token.colorBgContainer, '--finance-border': token.colorBorderSecondary, '--finance-text': token.colorText, '--finance-muted': token.colorTextSecondary, '--finance-radius': `${token.borderRadiusLG}px` } as React.CSSProperties}>
-    <aside className="finance-sidebar"><Button type="text" className="finance-brand" onClick={() => setActive('home')}><span>F</span> FINANCE</Button><Text className="finance-sidebar-caption" type="secondary">业务数据工作空间</Text>
+  return <OptionsContext.Provider value={metadata?.options || []}><main className={`finance-workspace${embeddedPage ? ' finance-workspace-native' : ''}`} style={{ '--finance-primary': token.colorPrimary, '--finance-primary-bg': token.colorPrimaryBg, '--finance-bg': token.colorBgLayout, '--finance-panel': token.colorBgContainer, '--finance-border': token.colorBorderSecondary, '--finance-text': token.colorText, '--finance-muted': token.colorTextSecondary, '--finance-radius': `${token.borderRadiusLG}px` } as React.CSSProperties}>
+    {!embeddedPage && <aside className="finance-sidebar"><Button type="text" className="finance-brand" onClick={() => setActive('home')}><span>F</span> FINANCE</Button><Text className="finance-sidebar-caption" type="secondary">业务数据工作空间</Text>
       <nav aria-label="Finance 主导航">{menu.map(item => <Button key={item.key} className={group === item.key ? 'is-active' : ''} type="text" icon={item.icon} aria-current={group === item.key ? 'page' : undefined} onClick={() => setActive(item.key)}>{item.label}</Button>)}</nav>
       <div className="finance-sidebar-tools"><Text type="secondary">数据工具</Text><Button type="text" onClick={() => setActive('drafts')}>个人草稿</Button><Button type="text" onClick={() => setActive('series')}>全量净值与收益</Button><Button type="text" onClick={() => setActive('export')}>数据导出</Button></div>
-    </aside>
-    <div className="finance-main"><header className="finance-topbar"><Space><Button type="link" onClick={() => setActive('home')}>工作台</Button><Text type="secondary">/</Text><Text>{pageTitle}</Text></Space><Space>{!canWrite && <Tag>只读</Tag>}{demo && <Tag color="gold">模拟数据环境</Tag>}<Text type="secondary">数据录入 · 流程样稿</Text></Space></header>
+    </aside>}
+    <div className="finance-main">{!embeddedPage && <header className="finance-topbar"><Space><Button type="link" onClick={() => setActive('home')}>工作台</Button><Text type="secondary">/</Text><Text>{pageTitle}</Text></Space><Space>{!canWrite && <Tag>只读</Tag>}{demo && <Tag color="gold">模拟数据环境</Tag>}<Text type="secondary">数据录入 · 流程样稿</Text></Space></header>}
     <div className="finance-content">
       {demo && <div className="finance-demo-note">当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。</div>}
       {error && !dialog && <Alert closable onClose={() => setError('')} type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
-      {group === 'entities' && <div className="finance-subnav"><Button type={active === 'entities' ? 'primary' : 'default'} onClick={() => setActive('entities')}>客户与主体</Button><Button type={active === 'positions' ? 'primary' : 'default'} onClick={() => setActive('positions')}>持仓核对</Button></div>}
-      <Tabs className="finance-page-panels" activeKey={tabs.some(tab => tab.key === active) ? active : 'home'} renderTabBar={() => <></>} items={tabs} />
+      {!embeddedPage && group === 'entities' && <div className="finance-subnav"><Button type={active === 'entities' ? 'primary' : 'default'} onClick={() => setActive('entities')}>客户与主体</Button><Button type={active === 'positions' ? 'primary' : 'default'} onClick={() => setActive('positions')}>持仓核对</Button></div>}
+      {embeddedPage === 'options' && metadata && !metadata.permissions?.configure ? <Alert type="warning" message="当前角色没有业务配置权限" /> : <Tabs className="finance-page-panels" activeKey={tabs.some(tab => tab.key === active) ? active : 'home'} renderTabBar={() => <></>} items={tabs} />}
     </div></div>
     <Modal open={dialog === 'versions'} title="基金资料历史版本" width={1080} footer={null} onCancel={() => setDialog(undefined)} destroyOnClose><VersionViewer versions={versions} /></Modal>
     <Modal open={dialog === 'classes'} title="份额状态" width={860} footer={null} onCancel={() => setDialog(undefined)} destroyOnClose>

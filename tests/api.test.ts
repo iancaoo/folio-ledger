@@ -482,3 +482,30 @@ test('Workbench coverage follows Finance read permissions and keeps domain write
   const write = await call('finance:saveSeries', { data_type: 'nav', values: { share_class_id: fund.share_classes[0].id, nav_date: '2026-06-30', nav_per_unit: '1.23' }, expected_revision: null, request_key: randomUUID() }, readerToken, 'finance_reader');
   assert.equal(write.status, 403);
 });
+
+test('Native Finance navigation preserves reader/editor/configurator entry boundaries', async (t) => {
+  const rootMenu = await call('desktopRoutes:listAccessible?paginate=false');
+  const flatten = (rows: any[]): any[] => rows.flatMap(row => [row, ...flatten(row.children || [])]);
+  const rootRows = flatten(rootMenu.body.data || []);
+  if (!rootRows.some(row => row.type === 'flowPage' && row.title === '基金列表')) {
+    t.skip('Native navigation has not been provisioned in this environment'); return;
+  }
+  for (const [role, auth, configure] of [
+    ['finance_reader', readerToken, false], ['finance_editor', editorToken, false],
+    ['finance_configurator', configuratorToken, true],
+  ] as const) {
+    const result = await call('desktopRoutes:listAccessible?paginate=false', undefined, auth, role);
+    assert.equal(result.status, 200);
+    const rows = flatten(result.body.data || []);
+    for (const title of ['总览', '基金列表', '净值与收益', '客户与主体', '持仓核对', '交易录入', '导入中心', '数据质量']) {
+      assert.ok(rows.some(row => row.title === title && row.type === 'flowPage'), `${role}: missing ${title}`);
+    }
+    assert.equal(rows.some(row => row.title === '字段候选配置'), configure, `${role}: configuration menu boundary`);
+    const metadata = await call('finance:metadata', undefined, auth, role);
+    assert.equal(metadata.body.data.permissions.write, role === 'finance_editor');
+    assert.equal(metadata.body.data.permissions.configure, configure);
+  }
+  const outsiderMenu = await call('desktopRoutes:listAccessible?paginate=false', undefined, outsiderToken, 'finance_product');
+  assert.equal(outsiderMenu.status, 200);
+  assert.equal(flatten(outsiderMenu.body.data || []).some(row => row.title === '基金列表'), false);
+});

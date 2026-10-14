@@ -63,3 +63,9 @@
 .finance-target-row > td { background: var(--finance-primary-bg, #f0f5ff) !important; }
 @media (max-width: 1250px) { .finance-sidebar { width: 175px; padding-inline: 10px; } .finance-content { padding-inline: 20px; } .finance-fund-layout { grid-template-columns: 210px minmax(0,1fr); gap: 16px; } .finance-home-grid { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 800px) { .finance-workspace { display: block; } .finance-sidebar { width: 100%; padding: 12px; border-right: 0; border-bottom: 1px solid var(--finance-border); } .finance-brand.ant-btn, .finance-sidebar-caption, .finance-sidebar-tools { display: none; } .finance-sidebar nav { flex-direction: row; overflow-x: auto; } .finance-sidebar nav .ant-btn { width: auto; flex-shrink: 0; padding-inline: 10px; } .finance-content { padding: 16px; } .finance-topbar { padding-inline: 16px; } .finance-topbar > .ant-space:last-child > .ant-space-item:last-child { display: none; } .finance-page-heading, .finance-period { flex-wrap: wrap; } .finance-overview-grid { gap: 8px; } .finance-overview-grid .ant-card-body { padding: 12px; } .finance-number { font-size: 25px; } .finance-fund-layout { grid-template-columns: minmax(0,1fr); } .finance-fund-list { max-height: 280px; overflow: auto; } .finance-settings-grid { grid-template-columns: minmax(0,1fr); } }
+
+/* Native pages reuse NocoBase's header/sidebar; only business content is rendered here. */
+.finance-workspace-native { display: block; min-height: 0; }
+.finance-workspace-native .finance-content { padding: 16px; }
+.finance-workspace-native .finance-fund-layout { grid-template-columns: 210px minmax(0,1fr); }
+@media (max-width: 1000px) { .finance-workspace-native .finance-fund-layout { grid-template-columns: minmax(0,1fr); } }

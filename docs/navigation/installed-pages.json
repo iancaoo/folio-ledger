@@ -1,0 +1,242 @@
+[
+  {
+    "key": "home",
+    "group": "工作台",
+    "title": "总览",
+    "icon": "DashboardOutlined",
+    "model": "FinanceHomeBlockModel",
+    "blockUid": "30510e4c924",
+    "tabRouteIds": [
+      392037896814593
+    ],
+    "groupRouteId": 392037894717440,
+    "routeId": 392037896814592,
+    "pageSchemaUid": "7kc2t4rjohl",
+    "url": "http://127.0.0.1:13000/admin/7kc2t4rjohl"
+  },
+  {
+    "key": "drafts",
+    "group": "工作台",
+    "title": "个人草稿",
+    "icon": "FormOutlined",
+    "model": "FinanceDraftsBlockModel",
+    "blockUid": "ac359c99ff2",
+    "tabRouteIds": [
+      392037901008897
+    ],
+    "groupRouteId": 392037894717440,
+    "routeId": 392037901008896,
+    "pageSchemaUid": "c384h8t2csp",
+    "url": "http://127.0.0.1:13000/admin/c384h8t2csp"
+  },
+  {
+    "key": "funds",
+    "group": "基金中心",
+    "title": "基金列表",
+    "icon": "FundOutlined",
+    "model": "FinanceFundsBlockModel",
+    "blockUid": "12000da1fef",
+    "tabRouteIds": [
+      392034556248066
+    ],
+    "groupRouteId": 392034556248064,
+    "routeId": 392034556248065,
+    "pageSchemaUid": "8e1sbfxrojp",
+    "url": "http://127.0.0.1:13000/admin/8e1sbfxrojp"
+  },
+  {
+    "key": "series",
+    "group": "基金中心",
+    "title": "净值与收益",
+    "icon": "LineChartOutlined",
+    "model": "FinanceSeriesBlockModel",
+    "blockUid": "1bb15668853",
+    "tabRouteIds": [
+      392035193257985
+    ],
+    "groupRouteId": 392034556248064,
+    "routeId": 392035193257984,
+    "pageSchemaUid": "banoqeeypfx",
+    "url": "http://127.0.0.1:13000/admin/banoqeeypfx"
+  },
+  {
+    "key": "compositions",
+    "group": "基金中心",
+    "title": "成分核对",
+    "icon": "ApartmentOutlined",
+    "model": "FinanceCompositionsBlockModel",
+    "blockUid": "401322cf8c1",
+    "tabRouteIds": [
+      392037907300353
+    ],
+    "groupRouteId": 392034556248064,
+    "routeId": 392037907300352,
+    "pageSchemaUid": "18spjl32e0z",
+    "url": "http://127.0.0.1:13000/admin/18spjl32e0z"
+  },
+  {
+    "key": "documents",
+    "group": "基金中心",
+    "title": "文档附件",
+    "icon": "FileOutlined",
+    "model": "FinanceDocumentsBlockModel",
+    "blockUid": "49c4649957c",
+    "tabRouteIds": [
+      392037911494657
+    ],
+    "groupRouteId": 392034556248064,
+    "routeId": 392037911494656,
+    "pageSchemaUid": "g9egfr2v7se",
+    "url": "http://127.0.0.1:13000/admin/g9egfr2v7se"
+  },
+  {
+    "key": "entities",
+    "group": "客户中心",
+    "title": "客户与主体",
+    "icon": "TeamOutlined",
+    "model": "FinanceEntitiesBlockModel",
+    "blockUid": "467ad32ad57",
+    "tabRouteIds": [
+      392037917786113
+    ],
+    "groupRouteId": 392037915688960,
+    "routeId": 392037917786112,
+    "pageSchemaUid": "9kvghlok59h",
+    "url": "http://127.0.0.1:13000/admin/9kvghlok59h"
+  },
+  {
+    "key": "positions",
+    "group": "客户中心",
+    "title": "持仓核对",
+    "icon": "PieChartOutlined",
+    "model": "FinancePositionsBlockModel",
+    "blockUid": "451ec68091b",
+    "tabRouteIds": [
+      392037921980417
+    ],
+    "groupRouteId": 392037915688960,
+    "routeId": 392037921980416,
+    "pageSchemaUid": "oasgl2nrs9k",
+    "url": "http://127.0.0.1:13000/admin/oasgl2nrs9k"
+  },
+  {
+    "key": "trades",
+    "group": "数据作业",
+    "title": "交易录入",
+    "icon": "SwapOutlined",
+    "model": "FinanceTradesBlockModel",
+    "blockUid": "c9663f807c6",
+    "tabRouteIds": [
+      392037928271873
+    ],
+    "groupRouteId": 392037926174720,
+    "routeId": 392037928271872,
+    "pageSchemaUid": "k9wj97a421t",
+    "url": "http://127.0.0.1:13000/admin/k9wj97a421t"
+  },
+  {
+    "key": "imports",
+    "group": "数据作业",
+    "title": "导入中心",
+    "icon": "ImportOutlined",
+    "model": "FinanceImportsBlockModel",
+    "blockUid": "7b13dd3630a",
+    "tabRouteIds": [
+      392037932466177
+    ],
+    "groupRouteId": 392037926174720,
+    "routeId": 392037932466176,
+    "pageSchemaUid": "putfb85zh0u",
+    "url": "http://127.0.0.1:13000/admin/putfb85zh0u"
+  },
+  {
+    "key": "quality",
+    "group": "数据作业",
+    "title": "数据质量",
+    "icon": "CheckCircleOutlined",
+    "model": "FinanceQualityBlockModel",
+    "blockUid": "12d2857e0c2",
+    "tabRouteIds": [
+      392037936660481
+    ],
+    "groupRouteId": 392037926174720,
+    "routeId": 392037936660480,
+    "pageSchemaUid": "654rpjdgi0h",
+    "url": "http://127.0.0.1:13000/admin/654rpjdgi0h"
+  },
+  {
+    "key": "export",
+    "group": "数据作业",
+    "title": "数据导出",
+    "icon": "ExportOutlined",
+    "model": "FinanceExportBlockModel",
+    "blockUid": "1a549665b9f",
+    "tabRouteIds": [
+      392037940854785
+    ],
+    "groupRouteId": 392037926174720,
+    "routeId": 392037940854784,
+    "pageSchemaUid": "3av2fklp66e",
+    "url": "http://127.0.0.1:13000/admin/3av2fklp66e"
+  },
+  {
+    "key": "settings",
+    "group": "业务设置",
+    "title": "设置概览",
+    "icon": "SettingOutlined",
+    "model": "FinanceSettingsBlockModel",
+    "blockUid": "8c545c6bee3",
+    "tabRouteIds": [
+      392037947146241
+    ],
+    "groupRouteId": 392037945049088,
+    "routeId": 392037947146240,
+    "pageSchemaUid": "3m1vr081od4",
+    "url": "http://127.0.0.1:13000/admin/3m1vr081od4"
+  },
+  {
+    "key": "options",
+    "group": "业务设置",
+    "title": "字段候选配置",
+    "icon": "UnorderedListOutlined",
+    "model": "FinanceOptionsBlockModel",
+    "blockUid": "103ba6f939c",
+    "tabRouteIds": [
+      392037951340545
+    ],
+    "groupRouteId": 392037945049088,
+    "routeId": 392037951340544,
+    "pageSchemaUid": "r7pxys3svf4",
+    "url": "http://127.0.0.1:13000/admin/r7pxys3svf4"
+  },
+  {
+    "key": "benchmarks",
+    "group": "业务设置",
+    "title": "基准数据",
+    "icon": "LineChartOutlined",
+    "model": "FinanceBenchmarksBlockModel",
+    "blockUid": "4c46b1569cd",
+    "tabRouteIds": [
+      392037955534849
+    ],
+    "groupRouteId": 392037945049088,
+    "routeId": 392037955534848,
+    "pageSchemaUid": "mdqonxd73bv",
+    "url": "http://127.0.0.1:13000/admin/mdqonxd73bv"
+  },
+  {
+    "key": "fund-register",
+    "group": "业务设置",
+    "title": "基金资料管理",
+    "icon": "DatabaseOutlined",
+    "model": "FinanceFundRegisterBlockModel",
+    "blockUid": "de23a2202aa",
+    "tabRouteIds": [
+      392037961826305
+    ],
+    "groupRouteId": 392037945049088,
+    "routeId": 392037961826304,
+    "pageSchemaUid": "rtk5swti1ll",
+    "url": "http://127.0.0.1:13000/admin/rtk5swti1ll"
+  }
+]
