@@ -76,7 +76,8 @@ def _fund_key(share: dict, siblings: int) -> str:
     return share["short_name"] if siblings == 1 else f"{share['short_name']} {share['class_label'] or share['isin']}"
 
 
-def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None) -> Dataset:
+def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None,
+                          benchmark_ids: list[str] | None = None) -> Dataset:
     entity = next((e for e in snap["entities"] if e["id"] == entity_id), None)
     if entity is None:
         raise ValueError(f"快照中没有投资主体 {entity_id}")
@@ -126,14 +127,20 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
             continue
         returns[k][m] = Return(value=float(r["mtd_return"]), estimate=r.get("estimate_label") == "是", source="基金收益率")
 
-    names = {b["id"]: b["name"] for b in snap["benchmarks"]}
-    levels: dict[str, list[tuple[Month, float]]] = defaultdict(list)
+    # 与 Finance 插件一致：未指定时，只报告在报告月有点位的基准；同月多个点位取最后一个。
+    if benchmark_ids:
+        chosen = [b for b in snap["benchmarks"] if b["id"] in benchmark_ids]
+    else:
+        current = {v["benchmark_id"] for v in snap["benchmark_values"] if _month(v["value_date"]) == as_of}
+        chosen = [b for b in snap["benchmarks"] if b["id"] in current]
+    names = {b["id"]: b["name"] for b in chosen}
+    levels: dict[str, dict[Month, float]] = defaultdict(dict)
     for v in snap["benchmark_values"]:
         if _month(v["value_date"]) <= as_of and v["benchmark_id"] in names:
-            levels[names[v["benchmark_id"]]].append((_month(v["value_date"]), float(v["index_value"])))
+            levels[names[v["benchmark_id"]]][_month(v["value_date"])] = float(v["index_value"])
     benchmarks = list(names.values())
     for b in benchmarks:
-        pts = sorted(levels[b])
+        pts = sorted(levels[b].items())
         returns[b] = {m: Return(value=v / pv - 1, source="基准净值") for (pm, pv), (m, v) in zip(pts, pts[1:])}
 
     name = entity.get("common_name") or entity["legal_name"]
@@ -141,11 +148,11 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
                  client_code=entity["client_code"])
     if snap.get("demo_mode"):
         ds.provenance = {("Finance", t, "模拟"): n for t in SNAPSHOT_TABLES
-                         if (n := len([r for r in _scoped(snap, t, entity_id, set(key_of), as_of)]))}
+                         if (n := len([r for r in _scoped(snap, t, entity_id, set(key_of), as_of, set(names))]))}
     return ds
 
 
-def _scoped(snap: dict, table: str, entity_id: str, class_ids: set[str], as_of: Month):
+def _scoped(snap: dict, table: str, entity_id: str, class_ids: set[str], as_of: Month, benchmark_ids: set[str]):
     date_col = {"transactions": "confirmation_date", "fund_navs": "nav_date",
                 "fund_returns": "return_date", "benchmark_values": "value_date"}[table]
     for row in snap[table]:
@@ -154,5 +161,7 @@ def _scoped(snap: dict, table: str, entity_id: str, class_ids: set[str], as_of: 
         if table == "transactions" and row["entity_id"] != entity_id:
             continue
         if table in ("fund_navs", "fund_returns") and row["share_class_id"] not in class_ids:
+            continue
+        if table == "benchmark_values" and row["benchmark_id"] not in benchmark_ids:
             continue
         yield row

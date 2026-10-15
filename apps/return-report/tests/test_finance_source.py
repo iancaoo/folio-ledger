@@ -18,7 +18,7 @@ from report.system_loader import SystemData, load_client
 E1, E2 = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"
 S1, S2, S3 = ("00000000-0000-4000-8000-0000000000a1", "00000000-0000-4000-8000-0000000000a2",
               "00000000-0000-4000-8000-0000000000b1")
-B1 = "00000000-0000-4000-8000-0000000000c1"
+B1, B2 = "00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000c2"
 
 
 def share(id, fund, short, label, role="进攻", region="美国", strategy="股票多空"):
@@ -47,9 +47,13 @@ SNAPSHOT = {
                   {"share_class_id": S2, "nav_date": "2026-02-28", "nav_per_unit": "101"}],
     "fund_returns": [{"share_class_id": S1, "return_date": "2026-02-28", "mtd_return": "0.02", "estimate_label": "否"},
                      {"share_class_id": S2, "return_date": "2026-03-31", "mtd_return": "-0.01", "estimate_label": "是"}],
-    "benchmarks": [{"id": B1, "name": "指数", "category": "股票"}],
+    "benchmarks": [{"id": B1, "name": "指数", "category": "股票"}, {"id": B2, "name": "停更指数", "category": "股票"}],
     "benchmark_values": [{"benchmark_id": B1, "value_date": "2025-12-31", "index_value": "100"},
-                         {"benchmark_id": B1, "value_date": "2026-01-31", "index_value": "103"}],
+                         {"benchmark_id": B1, "value_date": "2026-01-15", "index_value": "101"},
+                         {"benchmark_id": B1, "value_date": "2026-01-31", "index_value": "103"},
+                         {"benchmark_id": B1, "value_date": "2026-02-28", "index_value": "105"},
+                         {"benchmark_id": B1, "value_date": "2026-03-31", "index_value": "104"},
+                         {"benchmark_id": B2, "value_date": "2025-12-31", "index_value": "50"}],
 }
 
 
@@ -68,7 +72,11 @@ class SnapshotConversionTest(unittest.TestCase):
         self.assertAlmostEqual(ds.navs["Alpha A"][(2026, 1)].value, 10 * 105)
         self.assertAlmostEqual(ds.navs["Alpha A"][(2026, 3)].value, 8 * 112, msg="市值 = 截至当月的份额 × 单位净值")
         self.assertTrue(ds.returns["Alpha B"][(2026, 3)].estimate)
-        self.assertAlmostEqual(ds.returns["指数"][(2026, 1)].value, 0.03)
+        self.assertAlmostEqual(ds.returns["指数"][(2026, 1)].value, 0.03, msg="同月多个点位取月末点位")
+
+    def test_benchmarks_default_to_those_with_a_report_month_level(self):
+        self.assertEqual(dataset_from_snapshot(SNAPSHOT, E1).benchmarks, ["指数"])
+        self.assertEqual(dataset_from_snapshot(SNAPSHOT, E1, benchmark_ids=[B2]).benchmarks, ["停更指数"])
 
     def test_as_of_and_demo_provenance(self):
         ds = dataset_from_snapshot(SNAPSHOT, E1, (2026, 2))
@@ -132,6 +140,49 @@ class LiveFinanceTest(unittest.TestCase):
                     self.assertIsNone(yb.lo, "Finance 没有区间字段，区间估算只能以点值保存")
                     continue
                 self.assertAlmostEqual(ya.value, yb.value, places=10, msg=f"{code} {k} YTD")
+
+    def test_plugin_report_matches_python_engine(self):
+        """Finance 插件内的 TypeScript 计算与本原型在同一份快照上得到相同的数字和校验结论。"""
+        import time
+        import uuid
+        from report.checks import run_checks
+
+        for code in ("AM9001", "AM9002"):
+            entity = self.ids["entities"][code]
+            run_id = self.api.post("finance:requestReports", {"report_month": "2026-08", "entity_ids": [entity],
+                                                              "request_key": str(uuid.uuid4())})["run_ids"][0]
+            for _ in range(60):
+                run = self.api.get("finance:reportRun", id=run_id)
+                if run["status"] not in ("queued", "running"):
+                    break
+                time.sleep(0.5)
+            self.assertEqual(run["status"], "ready", run["error"])
+            snap = self.api._call("GET", "finance:reportDocument", query={"id": run_id, "kind": "snapshot"})
+            ds = dataset_from_snapshot(snap, entity, self.AS_OF, snap.get("benchmark_ids"))
+            res = compute(ds)
+            s = run["summary"]
+            self.assertAlmostEqual(s["ytd"], res.ytd, places=12, msg=code)
+            self.assertAlmostEqual(s["irr"], res.irr, places=10, msg=code)
+            self.assertAlmostEqual(s["total_nav"], res.total_nav[self.AS_OF], places=6)
+            for row in s["months"]:
+                m = tuple(int(x) for x in row["month"].split("-"))
+                self.assertAlmostEqual(row["nav"], res.total_nav[m], places=6)
+                self.assertAlmostEqual(row["flow"], res.total_flow[m], places=6)
+                if m in res.port_ret:
+                    self.assertAlmostEqual(row["return"], res.port_ret[m], places=12)
+            for fund in s["funds"]:
+                self.assertAlmostEqual(fund["weight"], res.weights[fund["key"]], places=12)
+                if fund["ytd"]["value"] is not None:
+                    self.assertAlmostEqual(fund["ytd"]["value"], res.fund_ytd[fund["key"]].value, places=12)
+            self.assertEqual({k: {t for t, _ in v} for k, v in s["alloc"].items()},
+                             {k: set(g) for k, g in res.alloc.items()})
+            for dim, groups in s["alloc"].items():
+                for tag, weight in groups:
+                    self.assertAlmostEqual(weight, res.alloc[dim][tag], places=12)
+            self.assertEqual([b["name"] for b in s["benchmarks"]], ds.benchmarks)
+            findings, _ = run_checks(ds, res)
+            self.assertEqual(sorted((f["level"], f["category"], f["title"]) for f in run["findings"]),
+                             sorted((f.level, f.category, f.title) for f in findings), code)
 
 
 if __name__ == "__main__":
