@@ -14,3 +14,8 @@ playwright-report/
 __pycache__/
 *.pyc
 
+
+# Return report: real data, local overrides and generated reports stay local
+apps/return-report/data/
+apps/return-report/local/
+apps/return-report/output/
