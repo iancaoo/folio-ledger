@@ -105,6 +105,77 @@ test('HTTP trade idempotency, withdrawal, NAV, holdings and unsafe void agree', 
   const voided = await mutation('voidTrade', { id: first.body.data.id, technical_revision: 1, reason: '模拟撤销校验' });
   assert.equal(voided.status, 422); assert.equal(voided.body.errors[0].code, 'NEGATIVE_HISTORICAL_UNITS');
 });
+test('Report snapshot reads one entity scope with exact decimals and Finance read permissions', async () => {
+  const query = `finance:reportSnapshot?entity_ids=${entity.id}&report_date=2026-01-02`;
+  for (const [auth, role, status] of [[token, 'root', 200], [readerToken, 'finance_reader', 200], [configuratorToken, 'finance_configurator', 200], [outsiderToken, 'finance_product', 403], ['', '', 401]]) {
+    assert.equal((await call(query, undefined, auth, role)).status, status, role);
+  }
+  const snapshot = (await call(query, undefined, readerToken, 'finance_reader')).body.data;
+  assert.equal(snapshot.schema, 'finance.report-snapshot/v1');
+  assert.deepEqual(snapshot.entities.map((row: any) => row.id), [entity.id]);
+  assert.deepEqual(snapshot.transactions.map((row: any) => [row.transaction_type, row.confirmed_units]), [['初次申购', '100'], ['赎回', '30']]);
+  assert.equal(snapshot.transactions[0].amount, '100.00000000001');
+  assert.deepEqual(snapshot.share_classes.map((row: any) => row.id), [fund.share_classes[0].id]);
+  assert.deepEqual(snapshot.fund_navs, [], 'NAV dated after report_date must be excluded');
+  const later = (await call(`finance:reportSnapshot?entity_ids=${entity.id}&report_date=2026-01-03`)).body.data;
+  assert.deepEqual(later.fund_navs.map((row: any) => row.nav_per_unit), ['1.25']);
+  assert.equal((await call('finance:reportSnapshot?report_date=2026-01-03')).body.errors[0].code, 'REQUIRED');
+  assert.equal((await call(`finance:reportSnapshot?entity_ids=${entity.id}`)).body.errors[0].code, 'REQUIRED');
+  assert.equal((await call(`finance:reportSnapshot?entity_ids=${randomUUID()}&report_date=2026-01-03`)).status, 404);
+});
+test('Monthly report runs from a snapshot, keeps Finance permissions and requires review before publishing', async () => {
+  const holder = (await mutation('saveEntity', sampleEntity(`API-REPORT-${Date.now()}`, '月报'))).body.data;
+  const trade = await mutation('saveTrade', { values: { entity_id: holder.id, share_class_id: fund.share_classes[0].id, transaction_type: '初次申购', confirmation_date: '2026-01-01', amount: '100', confirmed_units: '100', currency: 'HKD' } });
+  assert.equal(trade.status, 200, JSON.stringify(trade.body.errors));
+  const request = { report_month: '2026-01', entity_ids: [holder.id] };
+  assert.equal((await call('finance:requestReports', { ...request, request_key: randomUUID() }, readerToken, 'finance_reader')).status, 403);
+  assert.equal((await call('finance:requestReports')).status, 405);
+  assert.equal((await mutation('requestReports', { ...request, report_month: '2999-01' })).body.errors[0].code, 'INVALID_REPORT_MONTH');
+  assert.equal((await mutation('requestReports', { ...request, entity_ids: [randomUUID()] })).status, 404);
+  const key = randomUUID();
+  const requested = await mutation('requestReports', request, key);
+  assert.equal(requested.status, 200, JSON.stringify(requested.body.errors));
+  assert.deepEqual((await mutation('requestReports', request, key)).body.data, requested.body.data, 'A retried request must not queue another run');
+  const finished = async (id: string) => {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const run = (await call(`finance:reportRun?id=${id}`, undefined, readerToken, 'finance_reader')).body.data;
+      if (!['queued', 'running'].includes(run.status)) return run;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Report generation did not finish');
+  };
+  const [runId] = requested.body.data.run_ids;
+  const run = await finished(runId);
+  assert.equal(run.status, 'ready', run.error);
+  assert.equal(run.summary.total_nav, 125, '100 units × NAV 1.25 dated 2026-01-03');
+  assert.equal(run.summary.ytd, 0.25);
+  assert.match(run.snapshot_sha256, /^[0-9a-f]{64}$/);
+  assert.ok(run.findings.some(item => item.level === '错误' && item.category === '币种'), 'Mixed currencies are never summed silently');
+
+  for (const [auth, role, status] of [[readerToken, 'finance_reader', 200], [configuratorToken, 'finance_configurator', 200], [outsiderToken, 'finance_product', 403], ['', '', 401]]) {
+    assert.equal((await call(`finance:reportRuns?entity_id=${holder.id}`, undefined, auth, role)).status, status, role);
+  }
+  const listed = (await call(`finance:reportRuns?entity_id=${holder.id}`, undefined, readerToken, 'finance_reader')).body.data;
+  assert.deepEqual(listed.rows.map(row => row.id), [runId]);
+  assert.equal(listed.rows[0].report_html, undefined, 'Lists never carry document bodies');
+  const document = await fetch(`${base}finance:reportDocument?id=${runId}`, { headers: { Authorization: `Bearer ${readerToken}`, 'X-Role': 'finance_reader', 'X-Authenticator': 'basic' } });
+  assert.equal(document.status, 200);
+  assert.match(document.headers.get('content-security-policy') || '', /default-src 'none'.*sandbox/);
+  const html = await document.text();
+  assert.ok(html.includes('草稿 · 未发布') && html.includes('模拟主体 月报'));
+  assert.equal((await call(`finance:reportDocument?id=${runId}&kind=snapshot`)).body.entities[0].id, holder.id);
+
+  assert.equal((await call('finance:publishReport', { id: runId, technical_revision: run.technical_revision, request_key: randomUUID() }, readerToken, 'finance_reader')).status, 403);
+  assert.equal((await mutation('publishReport', { id: runId, technical_revision: run.technical_revision })).body.errors[0].code, 'REVIEW_NOTE_REQUIRED');
+  const published = await mutation('publishReport', { id: runId, technical_revision: run.technical_revision, review_note: '模拟复核：币种差异已知' });
+  assert.equal(published.status, 200, JSON.stringify(published.body.errors));
+  assert.ok(!(await (await fetch(`${base}finance:reportDocument?id=${runId}`, { headers: { Authorization: `Bearer ${token}`, 'X-Role': 'root', 'X-Authenticator': 'basic' } })).text()).includes('草稿 · 未发布'));
+  const again = await finished((await mutation('requestReports', request)).body.data.run_ids[0]);
+  assert.equal((await mutation('publishReport', { id: again.id, technical_revision: again.technical_revision, review_note: '模拟复核：重新生成' })).status, 200);
+  assert.equal((await finished(runId)).status, 'superseded', 'Only the latest published report stays current');
+  assert.equal((await mutation('retryReport', { id: again.id, technical_revision: again.technical_revision + 1 })).body.errors[0].code, 'REPORT_NOT_RETRYABLE');
+  assert.equal((await call(`finance_report_runs:list`)).status, 403);
+});
 test('HTTP import previews, corrects and commits without generic writes', async () => {
   const staged = await mutation('stageImport', { original_name: '模拟净值.csv', content_base64: Buffer.from('日期,单位净值\n2026-08-01,1.25\ninvalid,1.5\n').toString('base64'), data_type: 'nav', share_class_id: fund.share_classes[1].id });
   assert.equal(staged.status, 200, JSON.stringify(staged.body.errors));

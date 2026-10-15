@@ -56,6 +56,13 @@
     "model": "FinancePositionsBlockModel"
   },
   {
+    "key": "reports",
+    "group": "客户中心",
+    "title": "客户月报",
+    "icon": "FileTextOutlined",
+    "model": "FinanceReportsBlockModel"
+  },
+  {
     "key": "trades",
     "group": "数据作业",
     "title": "交易录入",

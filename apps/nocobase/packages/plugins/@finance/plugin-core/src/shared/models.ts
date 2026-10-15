@@ -11,6 +11,7 @@ export const TABLE_TITLES: Record<string, string> = {
   option_sets: '字段候选集', option_values: '字段候选值', request_receipts: '请求凭据',
   position_write_guards: '持仓写入控制', import_batches: '导入批次', import_rows: '导入暂存行',
   entry_drafts: '个人草稿', file_operations: '文件处理任务', file_records: '受保护文件元数据',
+  report_runs: '客户月报',
 };
 
 export type FieldDefinition = {
@@ -101,6 +102,12 @@ column('file_records', 'meta', 'json');
 column('fund_documents', 'size_bytes', 'bigInt', { allowNull: false });
 column('fund_documents', 'uploaded_at', 'date', { allowNull: false });
 column('fund_documents', 'deleting', 'boolean', { defaultValue: false, allowNull: false });
+for (const name of ['report_month', 'status', 'owner_id']) column('report_runs', name, 'text', { allowNull: false });
+column('report_runs', 'report_date', 'dateOnly', { allowNull: false });
+column('report_runs', 'attempts', 'integer', { defaultValue: 0, allowNull: false });
+for (const name of ['engine_version', 'snapshot_sha256', 'report_html', 'check_html', 'error', 'review_note', 'published_by']) column('report_runs', name, 'text');
+for (const name of ['snapshot_at', 'published_at']) column('report_runs', name, 'date');
+for (const name of ['benchmark_ids', 'claim', 'snapshot', 'summary', 'findings']) column('report_runs', name, 'json');
 
 export const relations: Array<[string, string, string, string, boolean?]> = [
   ['share_classes', 'fund', 'funds', 'fund_id'],
@@ -127,6 +134,7 @@ export const relations: Array<[string, string, string, string, boolean?]> = [
   ['import_rows', 'batch', 'import_batches', 'batch_id'],
   ['file_operations', 'document', 'fund_documents', 'document_id', true],
   ['file_operations', 'fund', 'funds', 'fund_id', true],
+  ['report_runs', 'entity', 'investment_entities', 'entity_id'],
 ];
 for (const [table, , , foreignKey, optional] of relations) column(table, foreignKey, 'uuid', { allowNull: !!optional });
 

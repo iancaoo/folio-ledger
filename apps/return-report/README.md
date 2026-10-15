@@ -1,8 +1,10 @@
 # Return Report（客户月报计算原型）
 
+> 正式的客户月报已经移进 Finance 插件（见下文「系统内月报」）。这里的 Python 代码保留为原型、Excel 迁移工具和计算一致性的参照。
+
 Finance 系统第二阶段「Return Tracker 报告计算」的原型：读取按《数据字段清单》录入的数据，为每个需要出月报的客户生成「投资组合回顾」报告，同时出一份校验报告。
 
-目前输入是 Excel 录入表，表结构和 `schema/field-catalog.json` 对应的字段清单一致。等 NocoBase 数据稳定后，只需要把 `report/system_loader.py` 换成从 PostgreSQL 读取，计算、校验和渲染部分不用改。
+输入有两种：Excel 录入表（表结构和 `schema/field-catalog.json` 对应的字段清单一致），或者直接从 Finance 系统读取（见下文「接入 Finance」）。两种输入都组装成同一个 `Dataset`，计算、校验和渲染部分共用。
 
 ## 快速开始
 
@@ -24,6 +26,8 @@ python -m unittest discover -s tests -t .
 | --- | --- |
 | `report/schema.py` | 录入表结构（9 张表），字段名与字段清单一致；生成模板 |
 | `report/system_loader.py` | 读录入表，按客户组装计算数据 |
+| `report/finance_source.py` | 调用 Finance 的 `finance:reportSnapshot`，把快照组装成同样的计算数据 |
+| `seed_finance.py` | 把模拟录入表通过 Finance 领域接口写入演示库 |
 | `report/engine.py` | 净值推算、组合收益、YTD、IRR、持仓分布 |
 | `report/checks.py` | 规则校验，输出错误 / 警告 / 提示 |
 | `report/render.py` | 报告和校验报告的 HTML |
@@ -66,6 +70,53 @@ python -m unittest discover -s tests -t .
 
 阈值在 `report/config.py` 中配置。模拟数据中故意放入了几处问题，用来演示这些规则：Alpha 有一笔赎回金额与份额不一致（错误），Bravo 的客户份额与公布收益存在系统性差异，Gamma 的配置策略填了不在枚举中的「混合」，Gamma 缺少 ISIN，Echo 只有区间估算。
 
+## 接入 Finance
+
+Finance 插件提供只读接口 `GET finance:reportSnapshot?report_date=2026-08-31&client_code=AM9001`（也可以用 `entity_ids=id1,id2`，最多 50 个）。接口在一个 REPEATABLE READ 只读事务里，一次读出所选投资主体截至报告日的所有交易，以及相关的份额类别、基金、净值、收益率、基准和基准点位，所以不会出现分页读取时混入不同版本数据的情况。数值都以字符串返回，保留数据库里的精度。Finance 的只读、录入和配置角色都可以调用。报告服务只读这个接口，不写任何业务表。
+
+```bash
+# Finance 在演示模式下运行时，把模拟录入表写进去（只能写演示库，可以重复执行）
+python seed_finance.py --data examples/示例数据_模拟.xlsx
+# 从 Finance 读数据出报告，输出文件名带 _finance 后缀
+python run.py --source finance --client AM9001 --as-of 2026-08
+# 端到端核对：写入 Finance 后读回，结果和直接读 Excel 逐项比对
+FINANCE_LIVE=1 python -m unittest discover -s tests -t .
+```
+
+接口地址默认是 `http://127.0.0.1:13000/api/`，可以用 `--api` 或环境变量 `FINANCE_API` 修改。账号取自 `FINANCE_ACCOUNT` / `FINANCE_PASSWORD`，没设置时读开发环境的 `.runtime/dev-credentials.json`。需要指定角色时设置 `FINANCE_ROLE`。
+
+用模拟数据核对过，两条路径算出的月度净值、申赎、组合收益、YTD、IRR、持仓分布和各基金 YTD 完全一致。校验结果有三处差别，都可以解释：
+
+- ISIN 必填检查移到了录入环节。Finance 录入时就要求 ISIN，种子脚本给缺 ISIN 的 Gamma 补了 `MOCK-NO-ISIN-…`。
+- 演示模式下的数据在校验报告里统一标为模拟数据。
+- Finance 没有收益率区间字段，Echo 的区间估算只能存估算点值，报告里的区间显示不出来。
+
+基准的选取规则两边相同：指定了 `benchmark_ids` 就用指定的；没有指定时，取报告月有点位的基准。同一个月有多个点位时，取最后一个作为月末点位。
+
+## 系统内月报
+
+Finance 插件的「客户中心 → 客户月报」页面（也可以在投资主体列表点「月报」进入）。计算代码在 `apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/`，口径与本目录的 Python 版本相同。
+
+1. **生成**：按投资主体或客户编号选择范围，填报告月份，可选指定基准。每个主体生成一条 `finance_report_runs` 记录，在后台队列里计算。应用重启后，未完成的任务会自动继续。
+2. **追溯**：计算前在只读事务里读一次 `reportSnapshot`，整份快照连同 SHA-256、读取时间和计算版本存进记录，可以随时下载。报告 HTML 和校验报告 HTML 也一起保存，以后数据改了，已生成的报告不会变。
+3. **复核与发布**：在线查看月报和校验结果。未发布的月报带「草稿」水印。有「错误」级校验时，发布必须填写复核说明。同一主体同一月份再次发布时，旧版本标为「已替代」。计算失败的任务可以重试。
+
+权限沿用 Finance 角色：只读、录入、配置角色可以查看；录入角色可以生成和发布。月报接口只能通过 `finance:requestReports`、`finance:publishReport` 等领域接口写入，通用表接口会被拒绝。
+
+系统版本比原型多一项「币种」校验：主体持有多种币种时，报告标为错误，不会把不同币种直接相加。
+
+`FINANCE_LIVE=1` 的测试里，`test_plugin_report_matches_python_engine` 会让插件生成一份月报，下载它的数据快照，再用 Python 重算并逐项比对。
+
+Finance 字段与月报需要的字段还有这些差距：
+
+| 月报需要 | Finance 现状 |
+| --- | --- |
+| 收益率区间下限、上限、估算点值 | 只有 MTD 收益率和「是否估算」 |
+| 客户「是否出月报」 | 没有，生成时手动选择主体或客户编号 |
+| 多币种换算 | 没有汇率表，多币种主体只报错，不换算 |
+| 配置策略「混合」 | 不在枚举中，录入时会被拒绝（演示模式不校验） |
+| 每个值的来源（真实 / 推算 / 模拟） | 只有导入批次和来源行号 |
+
 ## 真实数据
 
 真实资料不进仓库。`data/`、`local/`、`output/` 已加入 `.gitignore`，tracker、迁移后的录入表、迁移参数和生成的报告都放在这几个目录里。
@@ -89,3 +140,6 @@ tracker 只有持仓市值、没有份额，迁移时按「首次申购单位净
 - 基金只给出区间估算时，用于推算市值的点值由谁提供。
 - 「是否出月报」以及收益率区间字段是否加入字段清单。
 - 基准指数点位的来源和更新频率。
+- 基金 YTD 用月度收益连乘，还是用基金公布的 YTD。
+- 母基金（FOHF）的地区标签怎么填。
+- 第一张表用基金公布的收益率，还是用客户份额实际的收益率。

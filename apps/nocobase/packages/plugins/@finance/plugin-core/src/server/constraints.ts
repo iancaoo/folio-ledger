@@ -15,6 +15,8 @@ export async function applyFinanceConstraints(db: any) {
       ['transactions', 'confirmed_nav_scale', '"confirmed_nav" IS NULL OR scale("confirmed_nav") <= 4'],
       ['funds', 'fund_kind', '"fund_kind" IN (\'third_party\', \'proprietary\')'],
       ['funds', 'fund_dates', '"maturity_date" IS NULL OR "inception_date" IS NULL OR "maturity_date" >= "inception_date"'],
+      ['report_runs', 'status', '"status" IN (\'queued\', \'running\', \'ready\', \'failed\', \'published\', \'superseded\')'],
+      ['report_runs', 'report_month', '"report_month" ~ \'^[0-9]{4}-(0[1-9]|1[0-2])$\''],
       ...Object.keys(fields).map(table => [table, 'revision', '"technical_revision" >= 1']),
     ];
     for (const [table, suffix, expression] of checks) {

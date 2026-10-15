@@ -13,6 +13,8 @@ import { FinanceQueries } from './queries';
 import { FinanceDrafts } from './drafts';
 import { FinanceIssues } from './issues';
 import { FinanceExports } from './exports';
+import { FinanceReportSnapshot } from './report-snapshot';
+import { FinanceReports } from './reports';
 
 export default class FinancePlugin extends Plugin {
   service: FinanceService;
@@ -27,8 +29,10 @@ export default class FinancePlugin extends Plugin {
     const queries = new FinanceQueries(service);
     const drafts = new FinanceDrafts(service);
     const issues = new FinanceIssues(service);
+    const reportSnapshot = new FinanceReportSnapshot(service);
     const imports = new FinanceImports(service);
     const options = new FinanceOptions(service);
+    const reports = new FinanceReports(service, reportSnapshot, options);
     const files = new FinanceFiles(service, this.app.pm.get('file-manager'));
     const rolesOf = (ctx: any) => ctx.state.currentRoles || [ctx.state.currentRole];
     const canConfigure = (ctx: any) => rolesOf(ctx).some((role: string) => ['root', 'admin', 'finance_configurator'].includes(role));
@@ -170,6 +174,28 @@ export default class FinancePlugin extends Plugin {
     actions.navCoverage = respond(async ctx => queries.navCoverage(ctx.action.params));
     actions.seriesAt = respond(async ctx => queries.seriesAt(ctx.action.params));
     actions.positionList = respond(async ctx => queries.positions(ctx.action.params));
+    actions.reportSnapshot = respond(async ctx => reportSnapshot.read(ctx.action.params));
+    const postOnly = (ctx: any) => { if (ctx.method !== 'POST') throw new FinanceError('METHOD_NOT_ALLOWED', '月报操作仅接受 POST', undefined, 405); };
+    actions.requestReports = respond(async ctx => {
+      postOnly(ctx);
+      const { request_key, ...payload } = ctx.action.params.values || {};
+      const result = await service.write(String(ctx.state.currentUser.id), 'requestReports', request_key, payload, transaction => reports.request(payload, String(ctx.state.currentUser.id), transaction));
+      for (const id of result.run_ids) setImmediate(() => void reports.process(id).catch(error => this.log.error('Finance report generation failed', { error })));
+      return result;
+    }, true);
+    for (const [action, method] of Object.entries({ publishReport: 'publish', retryReport: 'retry' })) actions[action] = respond(async ctx => {
+      postOnly(ctx);
+      const { request_key, ...payload } = ctx.action.params.values || {}; const actor = String(ctx.state.currentUser.id);
+      const result = await service.write(actor, action, request_key, payload, transaction => method === 'publish' ? reports.publish(payload, actor, transaction) : reports.retry(payload, transaction));
+      if (action === 'retryReport') setImmediate(() => void reports.process(result.id).catch(error => this.log.error('Finance report retry failed', { error })));
+      return result;
+    }, true);
+    actions.reportRuns = respond(async ctx => reports.list(ctx.action.params));
+    actions.reportRun = respond(async ctx => reports.get(ctx.action.params.id));
+    actions.reportDocument = async (ctx: any) => {
+      try { check(ctx, false); await reports.document(ctx, ctx.action.params); }
+      catch (error: any) { if (!(error instanceof FinanceError)) throw error; ctx.withoutDataWrapping = true; ctx.status = error.status; ctx.body = { errors: [{ code: error.code, message: error.message }] }; }
+    };
     actions.issues = respond(async ctx => issues.list(ctx.action.params, String(ctx.state.currentUser.id)));
     this.app.resourceManager.define({ name: 'finance', actions });
     for (const action of Object.keys(actions)) this.app.acl.allow('finance', action, 'loggedIn');
@@ -194,13 +220,13 @@ export default class FinancePlugin extends Plugin {
       const recover = async () => {
         if (recovering) return;
         recovering = true;
-        try { await Promise.all([files.recover(), imports.recover()]); }
+        try { await Promise.all([files.recover(), imports.recover(), reports.recover()]); }
         catch (error) { this.log.error('Finance recovery failed', { error }); }
         finally { recovering = false; }
       };
       void recover();
       if (!worker) { worker = setInterval(recover, 30000); worker.unref(); }
     });
-    this.app.on('beforeStop', async () => { if (worker) clearInterval(worker); worker = undefined; await imports.close(); });
+    this.app.on('beforeStop', async () => { if (worker) clearInterval(worker); worker = undefined; reports.stopping = true; await imports.close(); });
   }
 }
