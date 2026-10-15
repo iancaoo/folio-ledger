@@ -13,6 +13,7 @@ import { FinanceQueries } from './queries';
 import { FinanceDrafts } from './drafts';
 import { FinanceIssues } from './issues';
 import { FinanceExports } from './exports';
+import { FinanceReportSnapshot } from './report-snapshot';
 
 export default class FinancePlugin extends Plugin {
   service: FinanceService;
@@ -27,6 +28,7 @@ export default class FinancePlugin extends Plugin {
     const queries = new FinanceQueries(service);
     const drafts = new FinanceDrafts(service);
     const issues = new FinanceIssues(service);
+    const reportSnapshot = new FinanceReportSnapshot(service);
     const imports = new FinanceImports(service);
     const options = new FinanceOptions(service);
     const files = new FinanceFiles(service, this.app.pm.get('file-manager'));
@@ -170,6 +172,7 @@ export default class FinancePlugin extends Plugin {
     actions.navCoverage = respond(async ctx => queries.navCoverage(ctx.action.params));
     actions.seriesAt = respond(async ctx => queries.seriesAt(ctx.action.params));
     actions.positionList = respond(async ctx => queries.positions(ctx.action.params));
+    actions.reportSnapshot = respond(async ctx => reportSnapshot.read(ctx.action.params));
     actions.issues = respond(async ctx => issues.list(ctx.action.params, String(ctx.state.currentUser.id)));
     this.app.resourceManager.define({ name: 'finance', actions });
     for (const action of Object.keys(actions)) this.app.acl.allow('finance', action, 'loggedIn');
