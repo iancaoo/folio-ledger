@@ -22,6 +22,7 @@ export const FinanceCompositionsBlockModel = pageModel('compositions', 'Finance 
 export const FinanceDocumentsBlockModel = pageModel('documents', 'Finance 文档附件', 'FileOutlined');
 export const FinanceEntitiesBlockModel = pageModel('entities', 'Finance 客户与主体', 'TeamOutlined');
 export const FinancePositionsBlockModel = pageModel('positions', 'Finance 持仓核对', 'PieChartOutlined');
+export const FinanceReportsBlockModel = pageModel('reports', 'Finance 客户月报', 'FileTextOutlined');
 export const FinanceTradesBlockModel = pageModel('trades', 'Finance 交易录入', 'SwapOutlined');
 export const FinanceImportsBlockModel = pageModel('imports', 'Finance 导入中心', 'ImportOutlined');
 export const FinanceQualityBlockModel = pageModel('quality', 'Finance 数据质量', 'CheckCircleOutlined');
