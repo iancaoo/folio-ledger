@@ -1,4 +1,6 @@
-# Finance · 基金业务数据录入与核对
+# Folio Ledger · 组合账簿
+
+Folio Ledger 是面向基金业务的组合账簿，覆盖数据录入、核对与追溯。
 
 基于 **NocoBase 2.2.24 + React + PostgreSQL** 的业务工作空间。将分散在 Excel 中的基金资料、投资主体、申赎交易和净值集中维护，让录入、校验、来源追溯和数据导出在同一系统内完成。
 
@@ -35,11 +37,11 @@
 这是私有仓库。先确保 GitHub 账户已获访问权限；浏览器或 Git 显示 404 时，先检查登录账户和授权。
 
 ```sh
-git clone https://github.com/iancaoo/Finance.git
-cd Finance
+git clone https://github.com/iancaoo/folio-ledger.git
+cd folio-ledger
 ```
 
-HTTPS 克隆使用 GitHub 的凭据管理器或 Personal Access Token，不使用账户密码。已配置 SSH 的用户也可执行 `git clone git@github.com:iancaoo/Finance.git`。
+HTTPS 克隆使用 GitHub 的凭据管理器或 Personal Access Token，不使用账户密码。已配置 SSH 的用户也可执行 `git clone git@github.com:iancaoo/folio-ledger.git`。
 
 ### 2. 准备运行环境
 
