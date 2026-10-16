@@ -4,7 +4,7 @@ import { CloseOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 const levelType = { 错误: 'error', 警告: 'warning', 提示: 'info' } as const;
-const flagColor = (flag: string) => flag === '缺失' ? 'error' : flag === '模拟' ? 'success' : flag.startsWith('来源') ? 'default' : 'orange';
+const flagColor = (flag: string) => flag === '缺失' || flag === '未标注' ? 'error' : flag === '模拟' ? 'success' : flag.startsWith('来源') || flag === '未采用' ? 'default' : 'orange';
 const tableNames = { finance_transactions: '申赎记录', finance_fund_navs: '基金净值', finance_fund_returns: '基金收益率', finance_benchmark_values: '基准点位', finance_funds: '基金资料' };
 
 export function formatValue(n: any) {

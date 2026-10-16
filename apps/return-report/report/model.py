@@ -117,6 +117,8 @@ class Dataset:
     missing_required: list[tuple[str, str, str]] = field(default_factory=list)
     # 原始数据定位，供计算图回溯：trades / prices / returns / bench_levels / tags，见 report/trace.py
     lineage: dict = field(default_factory=dict)
+    # 每个基金-月份考虑过的全部收益率记录及取舍原因（Finance 快照来源）
+    return_selections: dict = field(default_factory=dict)
 
     @property
     def fund_keys(self) -> list[str]:

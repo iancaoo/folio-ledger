@@ -49,7 +49,10 @@ export type Dataset = {
   currencies: string[];
   /** Where each input value came from, for the calculation trace. */
   lineage?: Lineage;
+  /** Every return record considered per fund-month and why it was or was not used. */
+  returnSelections?: Record<string, Record<Month, ReturnCandidate[]>>;
 };
+export type ReturnCandidate = { date: string; value: number; kind: '正式' | '估算' | '未标注'; used: boolean; reason: string; src: Src };
 /** Finance record locator: record id (or business key), column, and the import batch row it came from. */
 export type Src = Record<string, string | number | null>;
 export type Lineage = {

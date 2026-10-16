@@ -1,5 +1,6 @@
 import { FinanceError } from '../../shared/values';
 import { Dataset, Fund, Lineage, Month, Nav, Return, Src, toMonth } from './model';
+import { ReturnRow, selectReturns } from './select';
 
 const SNAPSHOT_TABLES = [['transactions', 'confirmation_date'], ['fund_navs', 'nav_date'], ['fund_returns', 'return_date'], ['benchmark_values', 'value_date']] as const;
 const TAG_FIELDS = [['配置策略', 'allocation_role'], ['投资地区', 'investment_region'], ['基金策略', 'strategy']] as const;
@@ -60,11 +61,22 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     lineage.prices[k][m] = { value: Number(n.nav_per_unit), src: record('finance_fund_navs', n, 'nav_per_unit') };
   }
   const returns: Dataset['returns'] = Object.fromEntries(Object.keys(funds).map(k => [k, {} as Record<Month, Return>]));
+  const returnRows: Record<string, ReturnRow[]> = {};
   for (const r of snap.fund_returns) {
-    const k = keyOf.get(r.share_class_id); const m = toMonth(r.return_date);
-    if (!k || m > asOf) continue;
-    returns[k][m] = new Return({ value: Number(r.mtd_return), estimate: r.estimate_label === '是', source: '基金收益率' });
-    lineage.returns[k][m] = { MTD收益率: record('finance_fund_returns', r, 'mtd_return') };
+    const k = keyOf.get(r.share_class_id);
+    if (!k || toMonth(r.return_date) > asOf) continue;
+    (returnRows[k] = returnRows[k] || []).push({ date: r.return_date.slice(0, 10), value: Number(r.mtd_return), label: r.estimate_label ?? null, row: r });
+  }
+  const returnSelections: Dataset['returnSelections'] = {};
+  for (const [k, rows] of Object.entries(returnRows)) {
+    returnSelections[k] = {};
+    for (const s of selectReturns(rows)) {
+      returnSelections[k][s.month] = s.candidates.map(({ date, value, kind, used, reason, row }) => ({ date, value, kind, used, reason, src: record('finance_fund_returns', row, 'mtd_return') }));
+      if (s.chosen === null) continue;
+      const c = s.candidates[s.chosen];
+      returns[k][s.month] = new Return({ value: c.value, estimate: c.kind === '估算', source: '基金收益率' });
+      lineage.returns[k][s.month] = { MTD收益率: record('finance_fund_returns', c.row, 'mtd_return') };
+    }
   }
   // Without an explicit choice, a benchmark is reported only when it has a level in the report month.
   const chosen = benchmarkIds?.length ? snap.benchmarks.filter((b: any) => benchmarkIds.includes(b.id))
@@ -97,5 +109,5 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     if (count) provenance.push(['Finance', table, '模拟', count]);
   }
   const currencies = [...new Set<string>([...held.map(s => s.currency), ...txns.map((t: any) => t.currency)].filter(Boolean))].sort();
-  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies, lineage };
+  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies, lineage, returnSelections };
 }

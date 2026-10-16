@@ -9,6 +9,7 @@ export const RANGE_VALUE: Record<string, string> = {
 
 export const FORMULAS: Record<string, string> = {
   flow: '当月申赎 = Σ申购金额 − Σ赎回金额（按确认日期所在月份，视为月初发生）',
+  select: '收益选值：同月正式值优先，同类取日期最新的一条；最新正式值日期之前的估算值不再使用；未标注是否估算的记录不参与计算',
   units: '持有份额 = 截至当月的 Σ申购份额 − Σ赎回份额',
   nav_statement: '持有市值 = 持有份额 × 当月末单位净值',
   nav_roll: '推算市值 =（上月市值 + 本月申赎）×（1 + 本月收益率）',

@@ -1,5 +1,5 @@
 import { Result } from './engine';
-import { Dataset, Month, Return, fundKeys, money, monthLabel, pct, signed } from './model';
+import { Dataset, Month, Return, fundKeys, money, monthEnd, monthLabel, pct, signed } from './model';
 
 export const THRESHOLDS = { reconWarn: 0.003, reconFitTol: 0.005, reconError: 0.01, bigMove: 0.15 };
 export const LEVELS = ['错误', '警告', '提示'] as const;
@@ -108,6 +108,19 @@ export function checkEstimates(ds: Dataset, res: Result): Finding[] {
   return out;
 }
 
+/** Return records the selection rule could not use, and formal values that may not cover the whole month. */
+export function checkSelection(ds: Dataset): Finding[] {
+  const out: Finding[] = [];
+  for (const k of fundKeys(ds)) for (const [m, cs] of Object.entries(ds.returnSelections?.[k] || {}).sort(([a], [b]) => a < b ? -1 : 1)) {
+    for (const c of cs.filter(c => c.kind === '未标注')) out.push(finding('错误', '收益选值', `${k} ${monthLabel(m)}：收益率未标注是否估算`,
+      `${c.date} 的收益率 ${pct(c.value)} 没有标注是正式值还是估算值，未参与计算${cs.some(x => x.used) ? '' : '，该月没有可用的收益率'}。`, '在 Finance 中补填“是否估算”后重新生成。', k, monthLabel(m)));
+    const used = cs.find(c => c.used);
+    if (used?.kind === '正式' && used.date !== monthEnd(m)) out.push(finding('提示', '收益选值', `${k} ${monthLabel(m)}：正式收益率日期不在月末`,
+      `采用的是 ${used.date} 的正式值 ${pct(used.value)}，可能只覆盖到月中。`, '确认该值是否为整月 MTD。', k, monthLabel(m)));
+  }
+  return out;
+}
+
 export function checkTags(ds: Dataset, allowed: Allowed): Finding[] {
   const out: Finding[] = [];
   for (const k of fundKeys(ds)) {
@@ -171,7 +184,7 @@ export function checkCurrency(ds: Dataset): Finding[] {
 export function runChecks(ds: Dataset, res: Result, allowed: Allowed) {
   const groups: Array<[string, Finding[]]> = [
     ['数据来源', checkProvenance(ds)], ['币种', checkCurrency(ds)], ['净值勾稽', checkReconciliation(ds, res)],
-    ['估算数据', checkEstimates(ds, res)], ['基金标签', checkTags(ds, allowed)], ['合计校验', checkTotals(res)],
+    ['收益选值', checkSelection(ds)], ['估算数据', checkEstimates(ds, res)], ['基金标签', checkTags(ds, allowed)], ['合计校验', checkTotals(res)],
     ['数据缺失', checkMissing(ds, res)], ['大幅波动', checkBigMoves(ds, res)],
   ];
   const findings = groups.flatMap(([, fs]) => fs).sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level));

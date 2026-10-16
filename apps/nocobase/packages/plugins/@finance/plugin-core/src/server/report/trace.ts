@@ -83,6 +83,13 @@ export function buildTrace(ds: Dataset, res: Result): Trace {
     for (const m of sortedMonths(ds.returns[k])) {
       const r: Return = ds.returns[k][m]; const s = srcs[m] || {};
       const est = r.estimate ? ['估算'] : []; const label = `${k} ${monthLabel(m)} 收益率`;
+      const cands = ds.returnSelections?.[k]?.[m];
+      if (r.value !== null && cands && cands.length > 1) {
+        const ins = cands.map((c, i): [string, string] => [`${c.used ? '采用' : '未采用'}：${c.reason}`,
+          g.leaf(`ret.cand|${k}|${m}|${i}`, `${k} ${c.date} 收益率（${c.kind}）`, c.value, 'pct', c.src, [...(c.kind === '正式' ? [] : [c.kind]), ...(c.used ? [] : ['未采用'])])]);
+        usedId[k][m] = out.fund_ret[k][m] = g.calc(`ret|${k}|${m}`, label, r.value, 'pct', 'select', ins, 'select', { chosen: cands.findIndex(c => c.used) }, est);
+        continue;
+      }
       if (r.value !== null) {
         usedId[k][m] = out.fund_ret[k][m] = g.leaf(`ret|${k}|${m}`, label, r.value, 'pct', s['MTD收益率'], [...est, ...tagFlags(s['MTD收益率'])]);
         continue;
@@ -220,6 +227,7 @@ export function evaluate(t: Trace, n: TraceNode): number {
     case 'chain': return chain(xs);
     case 'ratio': return xs[0] / xs[1];
     case 'growth': return one('本月末点位') / one('上月末点位') - 1;
+    case 'select': return xs[n.params!.chosen];
     case 'pick': return n.params!.mode === 'point' && inputs.some(([r]) => r === '估算点值') ? one('估算点值') : (one('下限') + one('上限')) / 2;
     case 'xirr': { const d: string[] = n.params!.dates; return xirr([...xs.slice(0, -1).map((x, i) => [d[i], -x] as [string, number]), [d[d.length - 1], xs[xs.length - 1]]]); }
     default: throw new Error(`unknown trace op ${n.op}`);

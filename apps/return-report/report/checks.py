@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from .config import (ALLOWED_REGIONS, ALLOWED_ROLES, ALLOWED_STRATEGIES, BIG_MOVE,
                      RECON_ERROR, RECON_FIT_TOL, RECON_WARN)
 from .engine import Result, compute
-from .model import Dataset, Month, month_label
+from .model import Dataset, Month, month_end, month_label
 
 LEVELS = {"错误": 0, "警告": 1, "提示": 2}
 
@@ -197,6 +197,24 @@ def check_overrides(ds: Dataset, res: Result) -> list[Finding]:
     return out
 
 
+def check_selection(ds: Dataset, res: Result) -> list[Finding]:
+    """选值规则没能使用的收益率记录，以及可能不覆盖整月的正式值。"""
+    out = []
+    for k in ds.fund_keys:
+        for m, cs in sorted(ds.return_selections.get(k, {}).items()):
+            for c in (c for c in cs if c["kind"] == "未标注"):
+                out.append(Finding("错误", "收益选值", f"{k} {month_label(m)}：收益率未标注是否估算",
+                                   f"{c['date']} 的收益率 {c['value']:.2%} 没有标注是正式值还是估算值，未参与计算"
+                                   + ("" if any(x["used"] for x in cs) else "，该月没有可用的收益率") + "。",
+                                   "在 Finance 中补填“是否估算”后重新生成。", k, month_label(m)))
+            used = next((c for c in cs if c["used"]), None)
+            if used and used["kind"] == "正式" and used["date"] != month_end(m).isoformat():
+                out.append(Finding("提示", "收益选值", f"{k} {month_label(m)}：正式收益率日期不在月末",
+                                   f"采用的是 {used['date']} 的正式值 {used['value']:.2%}，可能只覆盖到月中。",
+                                   "确认该值是否为整月 MTD。", k, month_label(m)))
+    return out
+
+
 def check_tags(ds: Dataset, res: Result) -> list[Finding]:
     out = []
     for k in ds.fund_keys:
@@ -270,6 +288,7 @@ CHECKS = [
     ("数据来源", check_provenance),
     ("必填字段", check_required),
     ("净值勾稽", check_reconciliation),
+    ("收益选值", check_selection),
     ("估算数据", check_estimates),
     ("历史数据修改", check_overrides),
     ("基金标签", check_tags),

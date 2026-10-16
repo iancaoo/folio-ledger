@@ -132,12 +132,21 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
         lineage["prices"][k][m] = {"value": float(n["nav_per_unit"]), "src": _record("finance_fund_navs", n, "nav_per_unit")}
 
     returns: dict[str, dict[Month, Return]] = {k: {} for k in funds}
+    rows_by_fund: dict[str, list[dict]] = defaultdict(list)
     for r in snap["fund_returns"]:
-        k, m = key_of.get(r["share_class_id"]), _month(r["return_date"])
-        if k is None or m > as_of:
-            continue
-        returns[k][m] = Return(value=float(r["mtd_return"]), estimate=r.get("estimate_label") == "是", source="基金收益率")
-        lineage["returns"][k][m] = {"MTD收益率": _record("finance_fund_returns", r, "mtd_return")}
+        k = key_of.get(r["share_class_id"])
+        if k is not None and _month(r["return_date"]) <= as_of:
+            rows_by_fund[k].append(r)
+    selections: dict[str, dict[Month, list[dict]]] = {}
+    for k, rows in rows_by_fund.items():
+        selections[k] = {}
+        for m, cands in select_returns(rows).items():
+            selections[k][m] = [{key: c[key] for key in ("date", "value", "kind", "used", "reason")}
+                                | {"src": _record("finance_fund_returns", c["row"], "mtd_return")} for c in cands]
+            used = next((c for c in cands if c["used"]), None)
+            if used:
+                returns[k][m] = Return(value=used["value"], estimate=used["kind"] == "估算", source="基金收益率")
+                lineage["returns"][k][m] = {"MTD收益率": _record("finance_fund_returns", used["row"], "mtd_return")}
 
     # 与 Finance 插件一致：未指定时，只报告在报告月有点位的基准；同月多个点位取最后一个。
     if benchmark_ids:
@@ -164,10 +173,42 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
     ds = Dataset(name, as_of, funds, benchmarks, returns, navs, {k: dict(v) for k, v in flows.items()},
                  client_code=entity["client_code"])
     ds.lineage = {key: dict(v) for key, v in lineage.items()}
+    ds.return_selections = selections
     if snap.get("demo_mode"):
         ds.provenance = {("Finance", t, "模拟"): n for t in SNAPSHOT_TABLES
                          if (n := len([r for r in _scoped(snap, t, entity_id, set(key_of), as_of, set(names))]))}
     return ds
+
+
+def _kind(label) -> str:
+    return "正式" if label == "否" else "估算" if label == "是" else "未标注"
+
+
+def select_returns(rows: list[dict]) -> dict[Month, list[dict]]:
+    """月度收益选值（需求 10.2、D06），与插件 report/select.ts 相同：未标注是否估算的记录不用；
+    最新正式值日期 D 及之前的估算值不再使用；同月正式值优先，同类取日期最新的一条；不把月内多条连乘。"""
+    formal = sorted(r["return_date"][:10] for r in rows if _kind(r.get("estimate_label")) == "正式")
+    latest = formal[-1] if formal else None
+    by_month: dict[Month, list[dict]] = {}
+    for r in sorted(rows, key=lambda r: r["return_date"][:10]):
+        d, kind = r["return_date"][:10], _kind(r.get("estimate_label"))
+        reason = ""
+        if kind == "未标注":
+            reason = "未标注是否估算，补填后才参与计算"
+        elif kind == "估算" and latest and d <= latest:
+            reason = f"已有 {latest} 的正式值，此前的估算值不再使用"
+        by_month.setdefault(_month(d), []).append(
+            {"date": d, "value": float(r["mtd_return"]), "kind": kind, "used": False, "reason": reason, "row": r})
+    for m, cs in by_month.items():
+        eligible = [i for i, c in enumerate(cs) if not c["reason"]]
+        pool = [i for i in eligible if cs[i]["kind"] == "正式"] or eligible
+        chosen = pool[-1] if pool else None
+        for i, c in enumerate(cs):
+            if i == chosen:
+                c["used"], c["reason"] = True, "当月正式值" if c["kind"] == "正式" else "当月最新估算值"
+            elif not c["reason"]:
+                c["reason"] = "当月已有正式值" if cs[chosen]["kind"] == "正式" and c["kind"] == "估算" else f"当月有更晚的{c['kind']}值"
+    return dict(sorted(by_month.items()))
 
 
 def _record(table: str, row: dict, col: str) -> dict:

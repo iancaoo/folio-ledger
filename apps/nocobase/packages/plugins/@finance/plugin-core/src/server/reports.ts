@@ -13,7 +13,7 @@ import { renderChecks, renderReport, reportCurrency, withDraftMark, withoutTrace
 import { fundKeys, monthEnd } from './report/model';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
 
-export const REPORT_ENGINE_VERSION = 'finance-report/1';
+export const REPORT_ENGINE_VERSION = 'finance-report/2';
 const CLAIM_MS = 5 * 60000;
 const STATUSES = ['queued', 'running', 'ready', 'failed', 'published', 'superseded'];
 const DOCUMENT_STATUSES = ['ready', 'published', 'superseded'];

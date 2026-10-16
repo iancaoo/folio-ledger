@@ -129,6 +129,17 @@ def build_trace(ds: Dataset, res: Result) -> Graph:
             s = srcs.get(m, {})
             est = ["估算"] if r.estimate else []
             label = f"{k} {month_label(m)} 收益率"
+            cands = ds.return_selections.get(k, {}).get(m)
+            if r.value is not None and cands and len(cands) > 1:
+                ins = [(f"{'采用' if c['used'] else '未采用'}：{c['reason']}",
+                        g.leaf(f"ret.cand|{k}|{mk(m)}|{i}", f"{k} {c['date']} 收益率（{c['kind']}）", c["value"], "pct", c["src"],
+                               ([] if c["kind"] == "正式" else [c["kind"]]) + ([] if c["used"] else ["未采用"])))
+                       for i, c in enumerate(cands)]
+                rid = g.calc(f"ret|{k}|{mk(m)}", label, r.value, "pct", "select", ins, "select",
+                             {"chosen": next(i for i, c in enumerate(cands) if c["used"])}, est)
+                used_id[k][m] = rid
+                out["fund_ret"][k][mk(m)] = rid
+                continue
             if r.value is not None:
                 rid = g.leaf(f"ret|{k}|{mk(m)}", label, r.value, "pct", s.get("MTD收益率"), est + _flags(s.get("MTD收益率")))
                 used_id[k][m] = rid
@@ -309,6 +320,8 @@ def evaluate(g: Graph, n: Node):
         return xs[0] / xs[1]
     if n.op == "growth":
         return one("本月末点位") / one("上月末点位") - 1
+    if n.op == "select":
+        return xs[n.params["chosen"]]
     if n.op == "pick":
         if n.params["mode"] == "point" and "估算点值" in v:
             return one("估算点值")
