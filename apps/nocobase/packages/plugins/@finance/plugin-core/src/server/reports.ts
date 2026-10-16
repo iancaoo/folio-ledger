@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Op, QueryTypes } from 'sequelize';
+import { findingKey, noteRequired, reviewCounts, reviewGate, type ReviewStatus } from '../shared/report-review';
 import { canonical, FinanceError } from '../shared/values';
 import { FinanceService, uuid } from './service';
 import { FinanceReportSnapshot } from './report-snapshot';
@@ -41,6 +42,21 @@ function recordRefs(snapshot: any) {
     fund_navs: index(snapshot?.fund_navs, row => ({ share_class_id: row.share_class_id, fund_id: share_classes[row.share_class_id]?.fund_id, date: day(row.nav_date) })),
     fund_returns: index(snapshot?.fund_returns, row => ({ share_class_id: row.share_class_id, date: day(row.return_date) })),
     benchmark_values: index(snapshot?.benchmark_values, row => ({ benchmark_id: row.benchmark_id, date: day(row.value_date) })),
+  };
+}
+function reviewerIds(raw: any) {
+  const ids: any[] = [];
+  for (const item of Object.values(raw?.items || {}) as any[]) ids.push(item?.by, ...(item?.history || []).map((entry: any) => entry.by));
+  return ids;
+}
+function namedReview(item: any, names: Record<string, string>) {
+  if (!item) return item;
+  return { ...item, by_name: names[item.by] ?? null, history: (item.history || []).map((entry: any) => ({ ...entry, by_name: names[entry.by] ?? null })) };
+}
+function presentReviews(raw: any, names: Record<string, string>) {
+  return {
+    items: Object.fromEntries(Object.entries(raw?.items || {}).map(([key, item]) => [key, namedReview(item, names)])),
+    counts: raw?.counts || { open_errors: 0, needs_fix: 0, handled: 0 },
   };
 }
 function onlyKeys(payload: any, keys: string[]) {
@@ -189,7 +205,7 @@ export class FinanceReports {
     if (input.search !== undefined && (typeof input.search !== 'string' || input.search.length > 200)) throw new FinanceError('INVALID_SEARCH', '搜索文本最多 200 字');
     if (input.search?.trim()) { params.search = `%${input.search.trim().replace(/[\\%_]/g, '\\$&')}%`; where.push('(e.legal_name ILIKE :search OR e.common_name ILIKE :search OR g.client_code ILIKE :search)'); }
     const [{ count }] = await this.sql(`SELECT count(*)::int AS count FROM finance_report_runs r${LIST_JOINS} WHERE ${where.join(' AND ')}`, params);
-    const rows = await this.sql(`SELECT ${LIST_COLUMNS}, NOT ${NEWER_FINAL} AS is_latest,
+    const rows = await this.sql(`SELECT ${LIST_COLUMNS}, r.finding_reviews->'counts' AS review_counts, NOT ${NEWER_FINAL} AS is_latest,
       EXISTS (SELECT 1 FROM finance_report_runs p WHERE p.entity_id=r.entity_id AND p.report_month=r.report_month AND p.status='published' AND p.id<>r.id) AS has_published
       FROM finance_report_runs r${LIST_JOINS} WHERE ${where.join(' AND ')}
       ORDER BY ${LIST_ORDER[order as keyof typeof LIST_ORDER]} LIMIT :page_size OFFSET :offset`, params);
@@ -203,32 +219,37 @@ export class FinanceReports {
     return Object.fromEntries(rows.map((row: any) => [String(row.id), row.get('nickname') || row.get('username') || `用户 ${row.id}`]));
   }
   view(row: any, users: Record<string, string>) {
-    const { summary, is_latest, has_published, ...rest } = row;
+    const { summary, is_latest, has_published, review_counts, ...rest } = row;
     const flag = (value: any) => value === true || value === 't' || value === 'true' || value === 1;
+    const counts = typeof review_counts === 'string' ? JSON.parse(review_counts) : review_counts;
     return { ...rest,
+      review: { open_errors: counts?.open_errors ?? summary?.counts?.错误 ?? 0, needs_fix: counts?.needs_fix ?? 0 },
       ...(is_latest === undefined ? {} : { is_latest: flag(is_latest) }),
       ...(has_published === undefined ? {} : { has_published: flag(has_published) }),
       has_trace: !!summary?.trace, owner_name: users[row.owner_id] ?? null, publisher_name: users[row.published_by] ?? null,
       summary: summary && { client: summary.client, currency: summary.currency, ytd: summary.ytd, irr: summary.irr, total_nav: summary.total_nav, counts: summary.counts } };
   }
   async get(id: string) {
-    const [row] = await this.sql(`SELECT ${LIST_COLUMNS},r.findings FROM finance_report_runs r${LIST_JOINS} WHERE r.id=:id`, { id: uuid(id, 'id') });
+    const [row] = await this.sql(`SELECT ${LIST_COLUMNS},r.findings,r.finding_reviews FROM finance_report_runs r${LIST_JOINS} WHERE r.id=:id`, { id: uuid(id, 'id') });
     if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
-    const users = await this.userNames([row.owner_id, row.published_by]);
-    return { ...this.view(row, users), summary: row.summary, findings: row.findings };
+    const findings = (row.findings || []).map((finding: any, index: number) => ({ ...finding, key: findingKey(index, finding) }));
+    const users = await this.userNames([row.owner_id, row.published_by, ...reviewerIds(row.finding_reviews)]);
+    row.review_counts = reviewCounts(findings, row.finding_reviews?.items);
+    return { ...this.view(row, users), summary: row.summary, findings, finding_reviews: presentReviews(row.finding_reviews, users), review_gate: reviewGate(findings, row.finding_reviews, row.review_note) };
   }
   async document(ctx: any, input: any) {
     const kind = input.kind === undefined ? 'report' : ['report', 'checks', 'snapshot', 'workbook'].includes(input.kind) ? input.kind : null;
     if (!kind) throw new FinanceError('INVALID_FILTER', '请选择月报、校验报告、复核工作簿或数据快照', 'kind');
     const [row] = await this.sql(`SELECT r.status,r.report_month,r.engine_version,r.snapshot_at,r.snapshot_sha256,r.benchmark_ids,g.client_code,
-      ${kind === 'workbook' ? 'r.trace' : kind === 'snapshot' ? 'r.snapshot' : 'r.report_html,r.check_html'}
+      ${kind === 'workbook' ? 'r.trace,r.findings,r.finding_reviews' : kind === 'snapshot' ? 'r.snapshot' : 'r.report_html,r.check_html'}
       FROM finance_report_runs r${LIST_JOINS} WHERE r.id=:id`, { id: uuid(input.id, 'id') });
     if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
     if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
     if (kind === 'workbook' && !row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可下载复核工作簿', 'id', 404);
     ctx.withoutDataWrapping = true; ctx.set('Cache-Control', 'private, no-store'); ctx.set('X-Content-Type-Options', 'nosniff');
     if (kind === 'workbook') {
-      ctx.body = reviewWorkbook(row.trace, row);
+      const names = await this.userNames(reviewerIds(row.finding_reviews));
+      ctx.body = reviewWorkbook(row.trace, { ...row, reviewer_names: names });
       ctx.type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       ctx.attachment(`复核工作簿_${row.client_code}_${row.report_month}${row.status === 'published' ? '' : '_草稿'}.xlsx`);
       return;
@@ -253,6 +274,37 @@ export class FinanceReports {
     if (!row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可追溯', 'id', 404);
     return { ...row.trace, record_refs: recordRefs(row.snapshot) };
   }
+  async reviewFinding(payload: any, actor: string, transaction: any) {
+    onlyKeys(payload, ['id', 'finding_key', 'status', 'note', 'expected_revision']);
+    const id = uuid(payload.id, 'id');
+    const key = typeof payload.finding_key === 'string' ? payload.finding_key : '';
+    if (!/^f\d{1,4}-[0-9a-f]{12}$/.test(key)) throw new FinanceError('INVALID_ID', '校验发现标识无效', 'finding_key');
+    const status = payload.status === null ? null : payload.status;
+    if (!['confirmed', 'needs_fix', 'not_applicable', null].includes(status)) throw new FinanceError('INVALID_FILTER', '复核结论无效', 'status');
+    const note = typeof payload.note === 'string' ? payload.note.trim() : '';
+    if ((payload.note !== undefined && payload.note !== null && typeof payload.note !== 'string') || note.length > 500) throw new FinanceError('INVALID_NOTE', '复核说明最多 500 字', 'note');
+    const expected = payload.expected_revision === undefined ? 0 : payload.expected_revision;
+    if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 0) throw new FinanceError('STALE_REVISION', '该条复核已被他人修改，请刷新', 'expected_revision', 409);
+    await this.service.lock([`report-run:${id}`], transaction);
+    const run = await this.service.requiredRow('report_runs', id, transaction);
+    if (run.get('status') !== 'ready') throw new FinanceError('REPORT_REVIEW_LOCKED', '已发布或已被替代的月报，复核记录不可修改', 'id', 409);
+    const findings = run.get('findings') || [];
+    const index = Number(key.slice(1, key.indexOf('-')));
+    const finding = findings[index];
+    if (!finding || findingKey(index, finding) !== key) throw new FinanceError('FINDING_NOT_FOUND', '这条校验发现已经变化，请刷新', 'finding_key', 409);
+    if (noteRequired(finding.level, status) && !note) throw new FinanceError('REVIEW_NOTE_REQUIRED', '请填写这条发现的复核说明', 'note');
+    const stored = run.get('finding_reviews') || { items: {}, counts: {} };
+    const items = { ...(stored.items || {}) };
+    const current = items[key];
+    if ((current?.revision || 0) !== expected) throw new FinanceError('STALE_REVISION', '该条复核已被他人修改，请刷新', 'expected_revision', 409);
+    const history = [...(current?.history || [])];
+    if (current) history.push({ status: current.status, note: current.note || '', by: current.by, at: current.at });
+    const review = { status, note, by: actor, at: new Date().toISOString(), revision: (current?.revision || 0) + 1, history: history.slice(-20) };
+    items[key] = review;
+    const counts = reviewCounts(findings.map((item: any, itemIndex: number) => ({ ...item, key: findingKey(itemIndex, item) })), items);
+    await run.update({ finding_reviews: { items, counts }, technical_revision: run.get('technical_revision') + 1 }, writeOptions(transaction));
+    return { id, technical_revision: run.get('technical_revision'), finding_key: key, review };
+  }
   async publish(payload: any, actor: string, transaction: any) {
     onlyKeys(payload, ['id', 'technical_revision', 'review_note']);
     const id = uuid(payload.id, 'id');
@@ -262,7 +314,12 @@ export class FinanceReports {
     if (run.get('status') !== 'ready') throw new FinanceError('REPORT_NOT_PUBLISHABLE', '只有已生成、未发布的月报可以发布', 'id', 409);
     const note = typeof payload.review_note === 'string' ? payload.review_note.trim() : '';
     if (payload.review_note !== undefined && (typeof payload.review_note !== 'string' || note.length > 2000)) throw new FinanceError('INVALID_NOTE', '复核说明最多 2000 字', 'review_note');
-    if (run.get('summary')?.counts?.错误 && !note) throw new FinanceError('REVIEW_NOTE_REQUIRED', '校验报告仍有错误，发布前请填写复核说明', 'review_note');
+    const findings = (run.get('findings') || []).map((finding: any, index: number) => ({ ...finding, key: findingKey(index, finding) }));
+    const gate = reviewGate(findings, run.get('finding_reviews'), note);
+    if (!gate.ok) {
+      const blocker = gate.blockers[0];
+      throw new FinanceError(blocker.code, blocker.message, 'review_note', blocker.code === 'REVIEW_NOTE_REQUIRED' ? 422 : 409);
+    }
     await this.service.lock([`entity:${run.get('entity_id')}`], transaction);
     const previous = await this.service.model('report_runs').findAll({ where: { entity_id: run.get('entity_id'), report_month: run.get('report_month'), status: 'published' }, ...writeOptions(transaction) });
     for (const row of previous) await row.update({ status: 'superseded', technical_revision: row.get('technical_revision') + 1 }, writeOptions(transaction));

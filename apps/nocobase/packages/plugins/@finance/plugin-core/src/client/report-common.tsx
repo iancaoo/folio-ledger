@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
-import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Space, Tabs, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Segmented, Space, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { TracePanel } from './TracePanel';
 import { TargetButton } from './report-targets';
 import type { ReportTarget } from '../shared/report-center';
@@ -38,6 +38,33 @@ export function useReportPost() {
   return { post, busy, tick, bump };
 }
 
+const REVIEW_LABEL = { confirmed: '已确认', needs_fix: '需修改', not_applicable: '不适用' };
+function FindingReview({ finding, review, runId, locked, canWrite, post }: any) {
+  const [choice, setChoice] = useState<string | undefined>(review?.status || undefined);
+  const [text, setText] = useState(review?.note || '');
+  useEffect(() => { setChoice(review?.status || undefined); setText(review?.note || ''); }, [review?.revision, review?.status, review?.note]);
+  const enabled = canWrite && !locked;
+  const required = finding.level === '错误' || choice === 'needs_fix' || choice === 'not_applicable';
+  async function submit(status: string | null) {
+    const note = (status === null ? text || review?.note || '' : text).trim();
+    if ((finding.level === '错误' || status === 'needs_fix' || status === 'not_applicable') && !note) { message.warning('请填写复核说明'); return; }
+    try { await post('reviewFinding', { id: runId, finding_key: finding.key, status, note, expected_revision: review?.revision || 0 }); }
+    catch (error: any) { message.error(error.response?.data?.errors?.[0]?.message || '复核没有保存'); }
+  }
+  const controls = <Space direction="vertical" size={4} style={{ marginTop: 8 }}>
+    <Space wrap>
+      <Segmented disabled={!enabled} value={choice} options={[{ label: '已确认', value: 'confirmed' }, { label: '需修改', value: 'needs_fix' }, { label: '不适用', value: 'not_applicable' }]} onChange={value => setChoice(String(value))} />
+      {review?.status && <Button type="link" size="small" disabled={!enabled} onClick={() => submit(null)}>撤回</Button>}
+    </Space>
+    {choice && <>
+      <Input.TextArea rows={2} maxLength={500} disabled={!enabled} value={text} placeholder={required ? '复核说明（必填）' : '复核说明（选填）'} onChange={event => setText(event.target.value)} />
+      <Button size="small" disabled={!enabled} onClick={() => submit(choice)}>保存结论</Button>
+    </>}
+    {review?.status && <Text type="secondary">{review.by_name || '复核人'} · {new Date(review.at).toLocaleString('zh-CN')} · {REVIEW_LABEL[review.status]}{review.note ? ` · ${review.note}` : ''}</Text>}
+  </Space>;
+  return canWrite ? controls : <Tooltip title="当前角色只读"><span>{controls}</span></Tooltip>;
+}
+
 export async function downloadReport(api: any, run: { id: string; client_code: string; report_month: string; status: string }, kind: string) {
   const response = await api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id: run.id, kind, download: '1' }, responseType: 'blob' });
   const url = URL.createObjectURL(response.data); const link = document.createElement('a');
@@ -53,6 +80,7 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget
   const [note, setNote] = useState(''); const [confirming, setConfirming] = useState(false);
   const [trace, setTrace] = useState<any>(); const [traceNote, setTraceNote] = useState(''); const [picked, setPicked] = useState<string[]>();
   const [tab, setTab] = useState('report');
+  const [onlyOpen, setOnlyOpen] = useState(false);
   const jump = (target: ReportTarget) => {
     if (!openTarget) return;
     if (['nav', 'trades', 'positions', 'options'].includes(target.kind)) close();
@@ -132,15 +160,26 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget
         </div>
       </> },
       { key: 'checks', label: <Space size={4}>校验结果<Counts counts={counts} /></Space>, children: <>
+        {run.status !== 'ready' && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="已发布的月报复核记录不可修改" />}
+        {!!run.findings?.length && <Space style={{ marginBottom: 12 }}>{(() => {
+          const errors = run.findings.filter((item: any) => item.level === '错误');
+          const reviews = run.finding_reviews?.items || {};
+          const handled = errors.filter((item: any) => ['confirmed', 'not_applicable'].includes(reviews[item.key]?.status)).length;
+          const fixing = errors.filter((item: any) => reviews[item.key]?.status === 'needs_fix').length;
+          return <Text>错误 {errors.length} 项：已处理 {handled}，需修改 {fixing}，未处理 {errors.length - handled - fixing}</Text>;
+        })()}<span>只看未处理 <Switch checked={onlyOpen} onChange={setOnlyOpen} /></span></Space>}
         {!run.findings?.length && <Alert type="success" showIcon message="全部检查项通过" />}
         {run.findings?.map((f, i) => {
+          const review = run.finding_reviews?.items?.[f.key];
+          if (onlyOpen && review?.status) return null;
           const node = trace?.findings?.[i]?.node;
-          return <Alert key={i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
+          return <Alert key={f.key || i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
             message={<Space wrap><Tag bordered={false}>{f.category}</Tag><Text strong>{f.title}</Text></Space>}
             description={<><Paragraph style={{ marginBottom: 4 }}>{f.detail}</Paragraph>{f.suggestion && <Text type="success">建议：{f.suggestion}</Text>}
               <div>{Array.isArray(f.targets) && f.targets.map((item: { label: string; target: ReportTarget }, index: number) => <TargetButton key={index} target={item.target} label={item.label} canWrite={canWrite} canConfigure={canConfigure} openTarget={jump} />)}
                 {node && <Button type="link" size="small" onClick={() => { setTab('report'); setPicked([node]); }}>查看计算过程</Button>}
-                {!Array.isArray(f.targets) && !node && <Text type="secondary">该月报生成于跳转功能上线之前，重新生成后可直接跳到记录</Text>}</div></>} />;
+                {!Array.isArray(f.targets) && !node && <Text type="secondary">该月报生成于跳转功能上线之前，重新生成后可直接跳到记录</Text>}</div>
+              <FindingReview finding={f} review={review} runId={run.id} locked={run.status !== 'ready'} canWrite={canWrite} post={post} /></>} />;
         })}
       </> },
       { key: 'trace', label: '数据追溯', children: <Descriptions column={1} bordered size="small" items={[
@@ -159,9 +198,10 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget
       ]} /> },
       { key: 'checks-html', label: '校验报告原文', children: frame(html.checks) },
     ]} />}
-    <Modal open={confirming} title="复核并发布月报" okText="确认发布" confirmLoading={busy} onOk={publish} onCancel={() => setConfirming(false)} okButtonProps={{ disabled: !!counts?.错误 && !note.trim() }}>
+    <Modal open={confirming} title="复核并发布月报" okText="确认发布" confirmLoading={busy} onOk={publish} onCancel={() => setConfirming(false)} okButtonProps={{ disabled: !canWrite || (run?.review_gate?.blockers || []).some((item: any) => item.code !== 'REVIEW_NOTE_REQUIRED') || (!!counts?.错误 && !note.trim()) }}>
       <p>发布后客户可见版本固定为本次生成的内容。同一主体同一月份此前发布的月报会标记为“已被替代”。</p>
-      {counts?.错误 > 0 && <Alert style={{ marginBottom: 12 }} type="error" showIcon message={`校验报告仍有 ${counts.错误} 项错误`} description="请先在 Finance 中修正数据并重新生成；确需发布时，填写复核说明。" />}
+      {(run?.review_gate?.blockers || []).map((item: any) => <Alert key={item.code} style={{ marginBottom: 12 }} type="error" showIcon message={item.message} />)}
+      {counts?.错误 > 0 && !(run?.review_gate) && <Alert style={{ marginBottom: 12 }} type="error" showIcon message={`校验报告仍有 ${counts.错误} 项错误`} description="请先在 Finance 中修正数据并重新生成；确需发布时，填写复核说明。" />}
       <Input.TextArea rows={3} maxLength={2000} placeholder={counts?.错误 ? '复核说明（必填）' : '复核说明（选填）'} value={note} onChange={event => setNote(event.target.value)} />
     </Modal>
   </Drawer>;

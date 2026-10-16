@@ -6,6 +6,7 @@ import { findingTargets } from '../apps/nocobase/packages/plugins/@finance/plugi
 import { renderChecks } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/render';
 import { traceLeafTarget } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/trace-source';
 import type { Finding } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/checks';
+import { findingFingerprint, findingKey, noteRequired, reviewGate } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/report-review';
 
 const trade = (id: string, type: string, units: string, date = '2026-08-01') => ({
   id, entity_id: 'entity-1', share_class_id: 'class-1', confirmation_date: date,
@@ -138,4 +139,23 @@ test('domain: extra finding fields do not change the check report', () => {
   const plain = renderChecks(ds, res, [base], [['数据缺失', 1]]);
   const extra = renderChecks(ds, res, [{ ...base, code: 'DATA_MISSING', loc: { month: '2026-08' }, targets: [{ label: '补录净值', target: { kind: 'nav' } }] } as any], [['数据缺失', 1]]);
   assert.equal(plain, extra);
+});
+
+test('domain: finding reviews block publish only for open errors and needs-fix', () => {
+  const error = { level: '错误', category: '数据缺失', title: '示例基金A 2026年8月：缺少数据', detail: '说明', suggestion: '', fund: '示例基金A', month: '2026年8月' };
+  const warning = { level: '警告', category: '基金标签', title: '示例基金A：标签不合规', detail: '', suggestion: '', fund: '示例基金A', month: '' };
+  const keyed = [error, warning].map((item, index) => ({ ...item, key: findingKey(index, item) }));
+  assert.equal(findingKey(0, error), findingKey(0, { ...error }));
+  assert.notEqual(findingKey(0, error), findingKey(1, error));
+  assert.equal(noteRequired('错误', 'confirmed'), true);
+  assert.equal(noteRequired('警告', 'confirmed'), false);
+  assert.equal(noteRequired('警告', 'not_applicable'), true);
+  assert.equal(reviewGate(keyed, null, '').blockers.map(item => item.code).join(','), 'REVIEW_INCOMPLETE,REVIEW_NOTE_REQUIRED');
+  const confirmed = { items: { [keyed[0].key]: { status: 'confirmed' as const } } };
+  assert.equal(reviewGate(keyed, confirmed, '').blockers[0].code, 'REVIEW_NOTE_REQUIRED');
+  assert.equal(reviewGate(keyed, confirmed, '已核对').ok, true);
+  const fixing = { items: { [keyed[1].key]: { status: 'needs_fix' as const }, [keyed[0].key]: { status: 'confirmed' as const } } };
+  assert.equal(reviewGate(keyed, fixing, '已核对').blockers[0].code, 'REVIEW_NEEDS_FIX');
+  assert.equal(findingFingerprint({ ...error, code: 'DATA_MISSING', loc: { date: '2026-08-31' } }), 'DATA_MISSING|示例基金A|2026年8月|2026-08-31');
+  assert.equal(findingFingerprint({ ...error, title: '示例 12 项' }), '数据缺失|示例基金A|2026年8月|示例 # 项');
 });

@@ -244,6 +244,7 @@ export function ReviewQueue({ active, canWrite, refresh, openTarget, canConfigur
     { title: '投资主体', dataIndex: 'legal_name', width: 220, render: (value: string, row: any) => <TwoLine main={<Button className="finance-text-link" type="link" onClick={() => setOpenId(row.id)}>{row.common_name || value}</Button>} sub={`客户编号 ${row.client_code}`} /> },
     { title: '报告月份', dataIndex: 'report_month', width: 110, render: (value: string) => <span className="finance-date">{value}</span> },
     { title: '校验', width: 220, render: (_: unknown, row: any) => <Counts counts={row.summary?.counts} /> },
+    { title: '复核进度', width: 140, render: (_: unknown, row: any) => row.review?.needs_fix ? `需修改 ${row.review.needs_fix}` : row.review?.open_errors ? `未处理错误 ${row.review.open_errors}` : '已处理' },
     { title: '版本', width: 180, render: (_: unknown, row: any) => <Space direction="vertical" size={0}>{row.is_latest === false && <Tooltip title="同主体同月已有更新的月报，建议复核最新版本"><Tag color="warning" bordered={false}>有更新版本</Tag></Tooltip>}{row.has_published && <Tag bordered={false}>将替代已发布版本</Tag>}</Space> },
     { title: '生成', width: 180, render: (_: unknown, row: any) => <TwoLine main={row.owner_name || '—'} sub={new Date(row.created_at).toLocaleString('zh-CN')} /> },
     { title: '操作', width: 90, fixed: 'right', render: (_: unknown, row: any) => <Button type="link" size="small" onClick={() => setOpenId(row.id)}>复核</Button> },

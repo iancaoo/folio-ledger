@@ -197,6 +197,11 @@ export default class FinancePlugin extends Plugin {
     actions.reportRuns = respond(async ctx => reports.list(ctx.action.params));
     actions.reportRun = respond(async ctx => reports.get(ctx.action.params.id));
     actions.reportTrace = respond(async ctx => reports.trace(ctx.action.params.id));
+    actions.reviewFinding = respond(async ctx => {
+      postOnly(ctx);
+      const { request_key, ...payload } = ctx.action.params.values || {};
+      return service.write(String(ctx.state.currentUser.id), 'reviewFinding', request_key, payload, transaction => reports.reviewFinding(payload, String(ctx.state.currentUser.id), transaction));
+    }, true);
     actions.reportDocument = async (ctx: any) => {
       try { check(ctx, false); await reports.document(ctx, ctx.action.params); }
       catch (error: any) { if (!(error instanceof FinanceError)) throw error; ctx.withoutDataWrapping = true; ctx.status = error.status; ctx.body = { errors: [{ code: error.code, message: error.message }] }; }

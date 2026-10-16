@@ -8,9 +8,10 @@
 import * as XLSX from 'xlsx';
 import { traceFormulaText, traceSourceText, TRACE_TABLE_NAMES } from '../../shared/trace-source';
 import { monthLabel } from './model';
+import { findingKey, REVIEW_STATUS_LABEL } from '../../shared/report-review';
 import { Trace, TraceNode } from './trace';
 
-export type WorkbookInfo = { report_month: string; status: string; engine_version: string; snapshot_at: string | Date | null; snapshot_sha256: string | null };
+export type WorkbookInfo = { report_month: string; status: string; engine_version: string; snapshot_at: string | Date | null; snapshot_sha256: string | null; findings?: any[]; finding_reviews?: any; reviewer_names?: Record<string, string> };
 
 const RAW = '原始数据', CALC = '计算步骤', CASH = 'IRR现金流', VIEW = '月度总览', REVIEW = '校验与复核', README = '说明';
 const FORMAT: Record<string, string> = { pct: '0.0000%', money: '#,##0.00', units: '#,##0.000000', price: '#,##0.000000', index: '#,##0.0000' };
@@ -117,11 +118,15 @@ export function reviewWorkbook(trace: Trace, info: WorkbookInfo): Buffer {
     [str('基金期末市值'), ...months.map(m => str(monthLabel(m)))], ...funds.map(k => [str(k), ...months.map(m => cellOf(o.nav[k]?.[m]))]), [],
     [str('基金月度收益（计算采用值）'), ...months.map(m => str(monthLabel(m)))], ...funds.map(k => [str(k), ...months.map(m => cellOf(o.ret_cell?.[k]?.[m]))])];
 
-  const review: Row[] = [[str('级别'), str('类别'), str('问题'), str('说明'), str('建议'), str('关联计算'), str('复核结论'), str('复核人'), str('复核说明')]];
-  for (const f of trace.findings || []) {
+  const review: Row[] = [[str('级别'), str('类别'), str('问题'), str('说明'), str('建议'), str('关联计算'), str('复核结论'), str('复核人'), str('复核说明'), str('复核时间')]];
+  const reviewItems = info.finding_reviews?.items || {};
+  (trace.findings || []).forEach((f, index) => {
     const pos = f.node ? at.get(f.node) : undefined;
-    review.push([str(f.level), str(f.category), str(f.title), str(f.detail), str(f.suggestion), pos ? link(str(label(f.node!)), pos[0], pos[1]) : str(''), null, null, null]);
-  }
+    const source = info.findings?.[index] || f;
+    const item = reviewItems[findingKey(index, source)];
+    review.push([str(f.level), str(f.category), str(f.title), str(f.detail), str(f.suggestion), pos ? link(str(label(f.node!)), pos[0], pos[1]) : str(''),
+      str(item?.status ? REVIEW_STATUS_LABEL[item.status] || '' : ''), str(item ? info.reviewer_names?.[item.by] || '' : ''), str(item?.note || ''), str(item?.at ? new Date(item.at).toISOString() : '')]);
+  });
 
   const counts = (trace.findings || []).reduce<Record<string, number>>((c, f) => ({ ...c, [f.level]: (c[f.level] || 0) + 1 }), {});
   const draft = info.status !== 'published';
@@ -134,7 +139,7 @@ export function reviewWorkbook(trace: Trace, info: WorkbookInfo): Buffer {
     [str(`1. 「${VIEW}」是月报上的主要数字，点击可跳到计算步骤。`)],
     [str(`2. 「${CALC}」每行一步：F 列是 Excel 按输入重新计算的值，G 列是系统存档值，H 列差异，I 列结果；上方“不一致的步骤”应为 0。`)],
     [str(`3. 「${RAW}」是计算用到的全部 Finance 记录（含记录 ID、导入批次和行号）。改动这里的值，所有依赖它的步骤会重算，可用于试算，不会改动系统数据。`)],
-    [str(`4. 「${REVIEW}」列出校验发现，复核结论和复核人可在本表线下填写；系统发布仍需在 Finance 中填写复核说明。`)],
+    [str(`4. 「${REVIEW}」中的复核结论取自 Finance 的逐条确认，为导出时的状态；未发布月报的结论可能仍会变化，以系统为准。`)],
     [str('5. 本文件由系统按已存的计算追溯生成，与月报正文、校验报告和数据快照出自同一次计算。')]];
 
   const book = XLSX.utils.book_new();

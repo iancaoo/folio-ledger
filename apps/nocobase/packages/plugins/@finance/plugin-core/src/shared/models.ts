@@ -107,7 +107,7 @@ column('report_runs', 'report_date', 'dateOnly', { allowNull: false });
 column('report_runs', 'attempts', 'integer', { defaultValue: 0, allowNull: false });
 for (const name of ['engine_version', 'snapshot_sha256', 'report_html', 'check_html', 'error', 'review_note', 'published_by']) column('report_runs', name, 'text');
 for (const name of ['snapshot_at', 'published_at']) column('report_runs', name, 'date');
-for (const name of ['benchmark_ids', 'claim', 'snapshot', 'summary', 'findings', 'trace']) column('report_runs', name, 'json');
+for (const name of ['benchmark_ids', 'claim', 'snapshot', 'summary', 'findings', 'trace', 'finding_reviews']) column('report_runs', name, 'json');
 
 export const relations: Array<[string, string, string, string, boolean?]> = [
   ['share_classes', 'fund', 'funds', 'fund_id'],
