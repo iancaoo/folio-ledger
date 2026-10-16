@@ -12,6 +12,7 @@ import { Allowed, LEVELS, runChecks } from './report/checks';
 import { renderChecks, renderReport, reportCurrency, withDraftMark, withoutTraceMarks } from './report/render';
 import { fundKeys, monthEnd } from './report/model';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
+import { reviewWorkbook } from './report/workbook';
 
 export const REPORT_ENGINE_VERSION = 'finance-report/2';
 const CLAIM_MS = 5 * 60000;
@@ -184,13 +185,21 @@ export class FinanceReports {
     return { ...this.view(row, users), summary: row.summary, findings: row.findings };
   }
   async document(ctx: any, input: any) {
-    const kind = input.kind === undefined ? 'report' : ['report', 'checks', 'snapshot'].includes(input.kind) ? input.kind : null;
-    if (!kind) throw new FinanceError('INVALID_FILTER', '请选择月报、校验报告或数据快照', 'kind');
-    const [row] = await this.sql(`SELECT r.status,r.report_month,r.report_html,r.check_html,r.snapshot,r.snapshot_at,r.snapshot_sha256,r.benchmark_ids,g.client_code
+    const kind = input.kind === undefined ? 'report' : ['report', 'checks', 'snapshot', 'workbook'].includes(input.kind) ? input.kind : null;
+    if (!kind) throw new FinanceError('INVALID_FILTER', '请选择月报、校验报告、复核工作簿或数据快照', 'kind');
+    const [row] = await this.sql(`SELECT r.status,r.report_month,r.engine_version,r.snapshot_at,r.snapshot_sha256,r.benchmark_ids,g.client_code,
+      ${kind === 'workbook' ? 'r.trace' : kind === 'snapshot' ? 'r.snapshot' : 'r.report_html,r.check_html'}
       FROM finance_report_runs r${LIST_JOINS} WHERE r.id=:id`, { id: uuid(input.id, 'id') });
     if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
     if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
+    if (kind === 'workbook' && !row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可下载复核工作簿', 'id', 404);
     ctx.withoutDataWrapping = true; ctx.set('Cache-Control', 'private, no-store'); ctx.set('X-Content-Type-Options', 'nosniff');
+    if (kind === 'workbook') {
+      ctx.body = reviewWorkbook(row.trace, row);
+      ctx.type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      ctx.attachment(`复核工作簿_${row.client_code}_${row.report_month}${row.status === 'published' ? '' : '_草稿'}.xlsx`);
+      return;
+    }
     if (kind === 'snapshot') {
       ctx.body = { ...row.snapshot, snapshot_at: row.snapshot_at, snapshot_sha256: row.snapshot_sha256, benchmark_ids: row.benchmark_ids };
       ctx.attachment(`月报数据快照_${row.client_code}_${row.report_month}.json`);

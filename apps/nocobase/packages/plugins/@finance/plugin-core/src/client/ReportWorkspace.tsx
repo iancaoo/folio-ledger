@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
-import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, Modal, Radio, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, Modal, Radio, Select, Space, Table, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { RemoteSelect } from './RemoteSelect';
 import { PageIntro, TwoLine } from './ui';
@@ -164,8 +164,9 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
     try {
       const response = await api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id, kind, download: '1' }, responseType: 'blob' });
       const url = URL.createObjectURL(response.data); const link = document.createElement('a');
-      const name = { report: '投资组合回顾', checks: '校验报告', snapshot: '月报数据快照' }[kind];
-      link.href = url; link.download = `${name}_${run.client_code}_${run.report_month}.${kind === 'snapshot' ? 'json' : 'html'}`; link.click();
+      const name = { report: '投资组合回顾', checks: '校验报告', snapshot: '月报数据快照', workbook: '复核工作簿' }[kind];
+      const ext = { snapshot: 'json', workbook: 'xlsx' }[kind] || 'html';
+      link.href = url; link.download = `${name}_${run.client_code}_${run.report_month}${kind === 'workbook' && run.status !== 'published' ? '_草稿' : ''}.${ext}`; link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch { message.error('下载失败，请重试'); }
   }
@@ -178,6 +179,9 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
   return <Drawer open={!!id} onClose={close} width="min(1320px, 96vw)" destroyOnClose title={run ? <Space>{run.common_name || run.legal_name}<Text type="secondary">{run.report_month}</Text><ReportStatus value={run.status} /></Space> : '月报'}
     extra={ready && <Space>
       <Button onClick={() => download('report')}>下载月报</Button><Button onClick={() => download('checks')}>下载校验报告</Button>
+      <Tooltip title={run.summary?.trace ? 'Excel：每一步计算都是公式，并列出系统值与差异，供逐项复核' : '该月报生成于计算追溯上线之前，重新生成后可下载'}>
+        <Button disabled={!run.summary?.trace} onClick={() => download('workbook')}>下载复核工作簿</Button>
+      </Tooltip>
       {run.status === 'ready' && <Button type="primary" disabled={!canWrite} onClick={() => setConfirming(true)}>复核并发布</Button>}
     </Space>}>
     {error && <Alert type="error" showIcon message={error} />}

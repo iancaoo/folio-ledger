@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
+import { traceFormulaText, traceSourceText } from '../shared/trace-source';
 
 const { Text } = Typography;
 const levelType = { 错误: 'error', 警告: 'warning', 提示: 'info' } as const;
 const flagColor = (flag: string) => flag === '缺失' || flag === '未标注' ? 'error' : flag === '模拟' ? 'success' : flag.startsWith('来源') || flag === '未采用' ? 'default' : 'orange';
-const tableNames = { finance_transactions: '申赎记录', finance_fund_navs: '基金净值', finance_fund_returns: '基金收益率', finance_benchmark_values: '基准点位', finance_funds: '基金资料' };
-
 export function formatValue(n: any) {
   const v = n?.value;
   if (v === null || v === undefined) return '—';
@@ -15,17 +14,8 @@ export function formatValue(n: any) {
   if (n.unit === 'money') return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return v.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
-function sourceText(s: any) {
-  if (!s) return null;
-  if (s.sheet && !s.table) return `录入表「${s.sheet}」第 ${s.row} 行 · ${s.col}`;
-  const head = `${tableNames[s.table] || s.table} · ${s.date ? `${s.date} · ` : ''}${s.col}`;
-  return s.batch ? `${head}（导入批次 ${String(s.batch).slice(0, 8)}${s.sheet ? `，「${s.sheet}」第 ${s.row} 行` : ''}）` : `${head}（手工录入）`;
-}
 function formula(trace: any, n: any) {
-  if (n.op === 'leaf') return '原始数据';
-  if (n.op === 'pick') return `${trace.range_rules[n.params.mode]}（口径 ${n.params.mode}）`;
-  const text = trace.formulas[n.rule] || n.op;
-  return n.op === 'sum' && n.params?.coeffs?.some((c: number) => c < 0) ? `${text}（赎回取负）` : text;
+  return n.op === 'leaf' ? '原始数据' : traceFormulaText(trace, n);
 }
 export function leavesUnder(trace: any, ids: string[]) {
   const seen = new Set<string>(); const out: string[] = []; const stack = [...ids];
@@ -54,7 +44,7 @@ function TraceNode({ trace, id, role, depth, findings }: { trace: any; id: strin
       <div style={{ flex: 1, minWidth: 0 }}>
         {role && <Text type="secondary">{role}：</Text>}<Text strong>{n.label}</Text><Flags flags={n.flags} />
         <div style={{ fontSize: 12, color: 'rgba(0,0,0,.55)' }}>{formula(trace, n)}</div>
-        {n.src && <div style={{ fontSize: 12, color: '#389e0d' }}>{sourceText(n.src)}</div>}
+        {n.src && <div style={{ fontSize: 12, color: '#389e0d' }}>{traceSourceText(n.src)}</div>}
         {findings[id]?.map((f, i) => <Alert key={i} type={levelType[f.level] || 'info'} showIcon style={{ margin: '4px 0', padding: '2px 8px', fontSize: 12 }} message={f.title} description={f.detail} />)}
       </div>
       <Text className="finance-num" style={{ whiteSpace: 'nowrap' }}>{formatValue(n)}</Text>
@@ -81,7 +71,7 @@ export function TracePanel({ trace, ids, onClose }: { trace: any; ids: string[];
     {ids.map(id => <TraceNode key={id} trace={trace} id={id} depth={0} findings={findings} />)}
     <div style={{ marginTop: 16 }}><Text type="secondary" style={{ fontSize: 12 }}>用到的原始数据：{leaves.length} 项{flagged ? `，其中 ${flagged} 项带标记` : ''}</Text></div>
     {leaves.map(i => { const n = trace.nodes[i]; return <div key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 12 }}>
-      <div style={{ flex: 1 }}>{n.label}<Flags flags={n.flags} /><div style={{ color: 'rgba(0,0,0,.45)' }}>{sourceText(n.src) || '无来源定位'}</div></div>
+      <div style={{ flex: 1 }}>{n.label}<Flags flags={n.flags} /><div style={{ color: 'rgba(0,0,0,.45)' }}>{traceSourceText(n.src) || '无来源定位'}</div></div>
       <span className="finance-num" style={{ whiteSpace: 'nowrap' }}>{formatValue(n)}</span>
     </div>; })}
   </Card>;
