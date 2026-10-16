@@ -95,7 +95,7 @@ FINANCE_LIVE=1 python -m unittest discover -s tests -t .
 
 ## 系统内月报
 
-Finance 插件的「客户中心 → 客户月报」页面（也可以在投资主体列表点「月报」进入）。计算代码在 `apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/`，口径与本目录的 Python 版本相同。
+Finance 插件的「报告中心 → 生成与记录」页面（也可以在投资主体列表点「月报」进入）。计算代码在 `apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/`，口径与本目录的 Python 版本相同。
 
 1. **生成**：按投资主体或客户编号选择范围，填报告月份，可选指定基准。每个主体生成一条 `finance_report_runs` 记录，在后台队列里计算。应用重启后，未完成的任务会自动继续。
 2. **追溯**：计算前在只读事务里读一次 `reportSnapshot`，整份快照连同 SHA-256、读取时间和计算版本存进记录，可以随时下载。报告 HTML 和校验报告 HTML 也一起保存，以后数据改了，已生成的报告不会变。

@@ -1,4 +1,3 @@
-/** Shared report-center types. Batch 2 reuses ReportTarget for finding-to-record jumps. */
 export type ReportTarget =
   | { kind: 'trades'; entity_id: string }
   | { kind: 'positions'; entity_id: string }
@@ -44,15 +43,8 @@ export type ReadinessResult = {
 
 export const BOARD_STAGES = ['not_ready', 'failed', 'ready_to_generate', 'not_checked', 'generating', 'review', 'published'] as const;
 export type BoardStage = typeof BOARD_STAGES[number];
-export type BenchmarkBasis = 'explicit' | 'previous_run' | 'default';
+export type BenchmarkBasis = 'explicit' | 'default';
 
 export function isBoardStage(value: string): value is BoardStage {
   return (BOARD_STAGES as readonly string[]).includes(value);
 }
-
-/**
- * Batch 2 reservations (not implemented):
- * - Finding.target?: ReportTarget, filled from dataset refs after runChecks; ReportDrawer check alerts host TargetButton.
- * - finance_report_runs.finding_reviews JSON plus POST reviewFinding (technical_revision); publish requires error items confirmed or a review note.
- * - reportCompare?base_id=&head_id= using summary and per-table snapshot facts, not snapshot_sha256 alone.
- */

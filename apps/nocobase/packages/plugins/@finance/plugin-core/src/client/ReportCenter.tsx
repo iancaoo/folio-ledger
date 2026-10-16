@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Card, Drawer, Dropdown, Input, Modal, Progress, Select, Space, Spin, Switch, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { AuditOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FileAddOutlined, FileTextOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
 import { PageIntro, StatCard, TwoLine } from './ui';
 import { RemoteSelect } from './RemoteSelect';
-import { Counts, ReportDrawer, ReportStatus, downloadReport, errorText, money, pct, useReportPost } from './ReportWorkspace';
+import { Counts, ReportDrawer, ReportStatus, downloadReport, errorText, money, pct, useReportPost } from './report-common';
 import type { BoardStage, ReadinessItem, ReportTarget } from '../shared/report-center';
 
 const { Text, Paragraph } = Typography;
@@ -14,7 +14,7 @@ const STAGE_META: Record<BoardStage, [string, string]> = {
   not_ready: ['数据未就绪', 'error'], ready_to_generate: ['待生成', 'default'], not_checked: ['未检查', 'default'],
   generating: ['生成中', 'processing'], failed: ['生成失败', 'error'], review: ['待复核', 'warning'], published: ['已发布', 'success'],
 };
-const BASIS_TEXT = { previous_run: '沿用该主体上次发布月报的基准', default: '未指定：使用报告月有点位的基准', explicit: '手动选择' };
+const BASIS_TEXT = { default: '未指定：使用报告月有点位的基准', explicit: '手动选择' };
 
 export const StageTag = ({ stage }: { stage?: string }) => <Tag bordered={false} color={STAGE_META[stage as BoardStage]?.[1]}>{STAGE_META[stage as BoardStage]?.[0] || stage || '—'}</Tag>;
 
@@ -54,7 +54,11 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
   const [picked, setPicked] = useState<string[] | null>(seed ? seed.split(',') : null);
   useEffect(() => { setPicked(current => ((current || []).join(',') === seed ? current : (seed ? seed.split(',') : null))); }, [entityId, month, seed]);
   const pickedKey = picked?.join(',') || '';
+  const scopeRef = useRef('');
   useEffect(() => {
+    const scope = `${entityId || ''}|${month || ''}`;
+    if (!open || scopeRef.current !== scope) { setData(undefined); setError(''); }
+    scopeRef.current = open ? scope : '';
     if (!open || !entityId || !month) return;
     let current = true; setLoading(true);
     const params: any = { entity_id: entityId, report_month: month };
@@ -78,28 +82,30 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
   }
   const shown = picked ?? data?.benchmark_ids ?? [];
   const groups = CATEGORIES.map(category => ({ category, items: (data?.items || []).filter((item: ReadinessItem) => item.category === category) })).filter(group => group.items.length);
-  return <Drawer open={open} onClose={close} width={760} zIndex={999} destroyOnClose title={data?.entity ? `${data.entity.common_name || data.entity.legal_name} · ${month} 出报告前检查` : '出报告前检查'}
-    footer={<Space><Button onClick={() => setRetry(value => value + 1)}>重新检查</Button><Button type="primary" disabled={!canWrite || !data} loading={busy} onClick={generate}>生成月报</Button></Space>}>
-    {loading && !data && <Spin />}
+  const current = data?.entity?.id === entityId ? data : undefined;
+  return <Drawer open={open} onClose={close} width={760} zIndex={999} destroyOnClose title={current?.entity ? `${current.entity.common_name || current.entity.legal_name} · ${month} 出报告前检查` : '出报告前检查'}
+    footer={<Space><Button onClick={() => setRetry(value => value + 1)}>重新检查</Button><Button type="primary" disabled={!canWrite || !data || data.entity?.id !== entityId} loading={busy} onClick={generate}>生成月报</Button></Space>}>
     {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
-    {data && <>
-      {data.status === 'blocked' && <Alert type="error" showIcon message={`有 ${data.counts?.错误 || 0} 项必须先处理，否则生成的月报校验会出现错误`} />}
-      {data.status === 'warning' && <Alert type="warning" showIcon message={`可以生成，有 ${data.counts?.警告 || 0} 项需要留意`} />}
-      {data.status === 'ready' && <Alert type="success" showIcon message="数据已就绪，可以生成月报" />}
+    {current && <>
+      {current.status === 'blocked' && <Alert type="error" showIcon message={`有 ${current.counts?.错误 || 0} 项必须先处理，否则生成的月报校验会出现错误`} />}
+      {current.status === 'warning' && <Alert type="warning" showIcon message={`可以生成，有 ${current.counts?.警告 || 0} 项需要留意`} />}
+      {current.status === 'ready' && <Alert type="success" showIcon message="数据已就绪，可以生成月报" />}
       <div style={{ margin: '16px 0' }}>
         <RemoteSelect aria-label="就绪检查基准" resource="benchmarks" mode="multiple" maxCount={20} style={{ width: '100%' }} value={shown}
           onChange={(value: string[]) => setPicked(value?.length ? value : null)} placeholder="基准" />
-        <Text type="secondary">{BASIS_TEXT[data.benchmark_basis] || BASIS_TEXT.default}</Text>
+        <Text type="secondary">{BASIS_TEXT[current.benchmark_basis] || BASIS_TEXT.default}</Text>
       </div>
-      {data.forecast && <Paragraph>按当前数据预计：<Counts counts={data.forecast.counts} /><Text type="secondary"> 仅供参考，以生成后的校验报告为准</Text></Paragraph>}
+      {current.forecast && <Paragraph>按当前数据预计：<Counts counts={current.forecast.counts} /><Text type="secondary"> 仅供参考，以生成后的校验报告为准</Text></Paragraph>}
+      {loading && <Spin />}
+      {!loading && <>
       <Text strong>持仓基金覆盖</Text>
-      <Table size="small" pagination={false} rowKey="key" style={{ margin: '8px 0 16px' }} dataSource={data.funds || []} locale={{ emptyText: '没有持仓基金' }} columns={[
+      <Table size="small" pagination={false} rowKey="key" style={{ margin: '8px 0 16px' }} dataSource={current.funds || []} locale={{ emptyText: '没有持仓基金' }} columns={[
         { title: '基金', dataIndex: 'key' }, { title: '币种', dataIndex: 'currency', width: 80 },
         { title: '月末持有', dataIndex: 'holding', width: 90, render: (value: boolean) => value ? '是' : '否' },
         { title: '当月净值', dataIndex: 'month_nav', width: 90, render: (value: boolean) => value ? '已录入' : '—' },
         { title: '当月收益', dataIndex: 'month_return', width: 90, render: (value: string) => value === '估算' ? <Tag color="orange" bordered={false}>估算</Tag> : value === '正式' ? '正式' : '—' },
       ]} />
-      {!data.items?.length && <Alert type="success" message="全部检查项通过" />}
+      {!current.items?.length && <Alert type="success" message="全部检查项通过" />}
       {groups.map(group => <div key={group.category} style={{ marginBottom: 12 }}>
         <Text type="secondary">{group.category}</Text>
         {group.items.map((item: ReadinessItem, index: number) => <div key={`${item.code}-${item.fund || ''}-${item.month || ''}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
@@ -107,7 +113,9 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
           <TargetButton item={item} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />
         </div>)}
       </div>)}
+      </>}
     </>}
+    {loading && !current && <Spin />}
   </Drawer>;
 }
 
@@ -131,13 +139,11 @@ export function ReportBoard({ active, canWrite, canConfigure, month, setMonth, r
     if (!active || !result?.counts?.generating) return;
     const timer = setTimeout(() => bump(), 4000);
     return () => clearTimeout(timer);
-  }, [active, result?.counts?.generating, tick, bump]);
+  }, [active, result]);
 
   function chooseStage(next?: string) { setStage(old => old === next ? undefined : next); setPage(1); }
   async function generateOne(row: any) {
-    const payload: any = { report_month: month, entity_ids: [row.entity_id] };
-    if (row.readiness?.benchmark_basis && row.readiness.benchmark_basis !== 'default' && row.readiness.benchmark_ids?.length) payload.benchmark_ids = row.readiness.benchmark_ids;
-    try { const outcome = await post('requestReports', payload); message.success(`已提交 ${outcome.run_ids.length} 份月报`); }
+    try { const outcome = await post('requestReports', { report_month: month, entity_ids: [row.entity_id] }); message.success(`已提交 ${outcome.run_ids.length} 份月报`); }
     catch (e) { message.error(errorText(e)); }
   }
   function askGenerate(row: any) {
@@ -157,23 +163,18 @@ export function ReportBoard({ active, canWrite, canConfigure, month, setMonth, r
     if (!rows.length) { message.info('没有数据就绪的主体'); return; }
     const warnings = rows.filter(row => row.readiness?.status === 'warning').length;
     Modal.confirm({ title: '批量生成月报', okText: '开始生成', content: `将为 ${rows.length} 个数据就绪的主体生成 ${month} 月报（其中 ${warnings} 个有警告）。生成在后台排队，完成后进入复核队列。`, onOk: async () => {
-      const groups = new Map<string, string[]>();
-      for (const row of rows) {
-        const benchmarks = row.readiness?.benchmark_basis && row.readiness.benchmark_basis !== 'default' ? row.readiness.benchmark_ids || null : null;
-        const key = JSON.stringify(benchmarks);
-        groups.set(key, [...(groups.get(key) || []), row.entity_id]);
-      }
-      let submitted = 0;
-      for (const [key, ids] of groups) {
-        const benchmarks = JSON.parse(key);
-        for (let index = 0; index < ids.length; index += 50) {
-          const payload: any = { report_month: month, entity_ids: ids.slice(index, index + 50) };
-          if (benchmarks?.length) payload.benchmark_ids = benchmarks;
-          const outcome = await post('requestReports', payload);
+      const ids = rows.map(row => row.entity_id);
+      let submitted = 0; const failed: string[] = []; let lastError: unknown;
+      for (let index = 0; index < ids.length; index += 50) {
+        const slice = ids.slice(index, index + 50);
+        try {
+          const outcome = await post('requestReports', { report_month: month, entity_ids: slice });
           submitted += outcome.run_ids.length;
-        }
+        } catch (e) { failed.push(...slice); lastError = e; }
       }
-      message.success(`已提交 ${submitted} 份月报`);
+      if (failed.length) message.error(`已提交 ${submitted} 份，${failed.length} 个主体提交失败。${errorText(lastError)}`);
+      else message.success(`已提交 ${submitted} 份`);
+      bump();
     } });
   }
   const counts = result?.counts;
@@ -224,7 +225,7 @@ export function ReportBoard({ active, canWrite, canConfigure, month, setMonth, r
         pagination={{ current: page, pageSize, total: result?.count || 0, showSizeChanger: true, onChange: (next, size) => { setPage(size !== pageSize ? 1 : next); setPageSize(size); } }} />
     </Card>
     <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
-    <ReadinessDrawer open={!!check} close={() => setCheck(undefined)} entityId={check} month={month} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh + tick} openTarget={openTarget} onGenerated={bump} />
+    <ReadinessDrawer open={!!check} close={() => setCheck(undefined)} entityId={check} month={month} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh} openTarget={openTarget} onGenerated={bump} />
   </div>;
 }
 

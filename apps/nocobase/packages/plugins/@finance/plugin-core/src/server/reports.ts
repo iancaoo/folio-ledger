@@ -8,7 +8,7 @@ import { domainWrite, writeOptions } from './write-scope';
 import { pagination } from './queries';
 import { datasetFromSnapshot } from './report/dataset';
 import { compute, Orders } from './report/engine';
-import { Allowed, LEVELS, runChecks } from './report/checks';
+import { Allowed, LEVELS, TAG_SOURCES, runChecks } from './report/checks';
 import { renderChecks, renderReport, reportCurrency, withDraftMark, withoutTraceMarks } from './report/render';
 import { fundKeys, monthEnd } from './report/model';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
@@ -18,12 +18,6 @@ export const REPORT_ENGINE_VERSION = 'finance-report/2';
 const CLAIM_MS = 5 * 60000;
 const STATUSES = ['queued', 'running', 'ready', 'failed', 'published', 'superseded'];
 const DOCUMENT_STATUSES = ['ready', 'published', 'superseded'];
-// Option sets that define allowed fund tags, per fund kind.
-export const TAG_SOURCES = {
-  risk: { third_party: '三方基金页面:30', proprietary: '自营基金页面:26' },
-  region: { third_party: '三方基金页面:31', proprietary: '自营基金页面:27' },
-  strategy: { third_party: '三方基金页面:28', proprietary: '自营基金页面:24' },
-};
 const LIST_COLUMNS = `r.id,r.entity_id,r.report_month,r.report_date::text,r.status,r.attempts,r.error,r.owner_id,r.published_by,r.published_at,
   r.snapshot_at,r.snapshot_sha256,r.engine_version,r.review_note,r.benchmark_ids,r.technical_revision,r.created_at,r.updated_at,r.summary,
   e.legal_name,e.common_name,g.client_code`;

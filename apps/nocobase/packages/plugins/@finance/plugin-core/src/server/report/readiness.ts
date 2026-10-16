@@ -1,7 +1,6 @@
 import { FinanceError } from '../../shared/values';
 import { ReadinessCounts, ReadinessItem, ReadinessResult } from '../../shared/report-center';
-import { TAG_SOURCES } from '../reports';
-import { Allowed, LEVELS, runChecks, tagProblems } from './checks';
+import { Allowed, LEVELS, TAG_SOURCES, runChecks, tagProblems } from './checks';
 import { datasetFromSnapshot } from './dataset';
 import { Orders, compute } from './engine';
 import { Dataset, Month, fundKeys, monthEnd, monthLabel, pct } from './model';

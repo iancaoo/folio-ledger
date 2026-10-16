@@ -121,6 +121,12 @@ export function checkSelection(ds: Dataset): Finding[] {
   return out;
 }
 
+/** Option sets that define allowed fund tags, per fund kind. */
+export const TAG_SOURCES = {
+  risk: { third_party: '三方基金页面:30', proprietary: '自营基金页面:26' },
+  region: { third_party: '三方基金页面:31', proprietary: '自营基金页面:27' },
+  strategy: { third_party: '三方基金页面:28', proprietary: '自营基金页面:24' },
+};
 export const TAG_FIELDS = { 风险分类: 'allocation_role', 投资地区: 'investment_region', 基金策略: 'strategy' } as const;
 export type TagProblem = { key: string; label: keyof typeof TAG_FIELDS; field: string; value: string; choices: string[]; level: Level };
 export function tagProblems(ds: Dataset, allowed: Allowed): TagProblem[] {
