@@ -56,9 +56,30 @@
     "model": "FinancePositionsBlockModel"
   },
   {
+    "key": "report-board",
+    "group": "报告中心",
+    "title": "本月看板",
+    "icon": "CalendarOutlined",
+    "model": "FinanceReportBoardBlockModel"
+  },
+  {
+    "key": "report-review",
+    "group": "报告中心",
+    "title": "复核队列",
+    "icon": "AuditOutlined",
+    "model": "FinanceReportReviewBlockModel"
+  },
+  {
+    "key": "report-archive",
+    "group": "报告中心",
+    "title": "月报归档",
+    "icon": "FolderOpenOutlined",
+    "model": "FinanceReportArchiveBlockModel"
+  },
+  {
     "key": "reports",
-    "group": "客户中心",
-    "title": "客户月报",
+    "group": "报告中心",
+    "title": "生成与记录",
     "icon": "FileTextOutlined",
     "model": "FinanceReportsBlockModel"
   },

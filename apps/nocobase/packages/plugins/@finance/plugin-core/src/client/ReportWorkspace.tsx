@@ -1,36 +1,65 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Card, Descriptions, Drawer, Empty, Input, Modal, Radio, Select, Space, Table, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { RemoteSelect } from './RemoteSelect';
 import { PageIntro, TwoLine } from './ui';
-import { localToday } from './BusinessPages';
+import { lastMonth } from './BusinessPages';
 import { TracePanel } from './TracePanel';
+import { ReadinessDrawer } from './ReportCenter';
+import type { ReportTarget } from '../shared/report-center';
 
 const { Text, Paragraph } = Typography;
 const prefix = (label: string) => <span className="finance-prefix">{label}</span>;
 const statusLabels = { queued: ['排队中', 'processing'], running: ['计算中', 'processing'], ready: ['待复核', 'warning'], failed: ['生成失败', 'error'], published: ['已发布', 'success'], superseded: ['已被替代', 'default'] };
 const levelColors = { 错误: 'error', 警告: 'warning', 提示: 'processing' };
-const pct = (value: any, digits = 2) => typeof value === 'number' ? `${(value * 100).toFixed(digits)}%` : '—';
-const money = (value: any) => typeof value === 'number' ? Math.round(value).toLocaleString('en-US') : '—';
-const lastMonth = () => { const [y, m] = localToday().split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; };
-const errorText = (e: any) => e.response?.data?.errors?.[0]?.message || '请求未完成，请重试；同一次提交不会重复生成';
+export const pct = (value: any, digits = 2) => typeof value === 'number' ? `${(value * 100).toFixed(digits)}%` : '—';
+export const money = (value: any) => typeof value === 'number' ? Math.round(value).toLocaleString('en-US') : '—';
+export const errorText = (e: any) => e.response?.data?.errors?.[0]?.message || '请求未完成，请重试；同一次提交不会重复生成';
 
 export const ReportStatus = ({ value }: { value: string }) => <Tag bordered={false} color={statusLabels[value]?.[1]}>{statusLabels[value]?.[0] || value}</Tag>;
-function Counts({ counts }: any) {
+export function Counts({ counts }: any) {
   if (!counts) return <Text type="secondary">—</Text>;
   return <Space size={4}>{Object.entries(levelColors).map(([level, color]) => <Tag key={level} bordered={false} color={counts[level] ? color : 'default'}>{level} {counts[level] ?? 0}</Tag>)}</Space>;
 }
 
-export function ReportWorkspace({ active, canWrite, entityId }: { active: boolean; canWrite: boolean; entityId?: string }) {
+export function useReportPost() {
+  const api = useAPIClient();
+  const pendingKey = useRef<{ body: string; key: string }>();
+  const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
+  const bump = useCallback(() => setTick(value => value + 1), []);
+  async function post(action: string, payload: any) {
+    const body = `${action}:${JSON.stringify(payload)}`;
+    if (pendingKey.current?.body !== body) pendingKey.current = { body, key: crypto.randomUUID() };
+    setBusy(true);
+    try {
+      const response = await api.request({ skipNotify: true, url: `finance:${action}`, method: 'post', data: { ...payload, request_key: pendingKey.current.key } });
+      pendingKey.current = undefined; setTick(value => value + 1);
+      return response.data.data;
+    } finally { setBusy(false); }
+  }
+  return { post, busy, tick, bump };
+}
+
+export async function downloadReport(api: any, run: { id: string; client_code: string; report_month: string; status: string }, kind: string) {
+  const response = await api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id: run.id, kind, download: '1' }, responseType: 'blob' });
+  const url = URL.createObjectURL(response.data); const link = document.createElement('a');
+  const name = { report: '投资组合回顾', checks: '校验报告', snapshot: '月报数据快照', workbook: '复核工作簿' }[kind];
+  const ext = { snapshot: 'json', workbook: 'xlsx' }[kind] || 'html';
+  link.href = url; link.download = `${name}_${run.client_code}_${run.report_month}${kind === 'workbook' && run.status !== 'published' ? '_草稿' : ''}.${ext}`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function ReportWorkspace({ active, canWrite, entityId, refresh = 0, openTarget, canConfigure = false }: { active: boolean; canWrite: boolean; entityId?: string; refresh?: number; openTarget?: (target: ReportTarget) => void; canConfigure?: boolean }) {
   const api = useAPIClient();
   const [scope, setScope] = useState<'entity' | 'client'>('entity');
   const [target, setTarget] = useState<any>({ entity_id: entityId, report_month: lastMonth() });
   const [query, setQuery] = useState<any>({ page: 1, page_size: 10, entity_id: entityId });
   const [result, setResult] = useState<any>({ rows: [], count: 0 });
-  const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  const [tick, setTick] = useState(0); const [openId, setOpenId] = useState<string>();
-  const pendingKey = useRef<{ body: string; key: string }>();
+  const [loading, setLoading] = useState(false); const [error, setError] = useState('');
+  const [openId, setOpenId] = useState<string>(); const [checkOpen, setCheckOpen] = useState(false);
+  const { post, busy, tick, bump } = useReportPost();
   useEffect(() => { if (entityId) { setTarget(old => ({ ...old, entity_id: entityId })); setQuery(old => ({ ...old, entity_id: entityId, page: 1 })); } }, [entityId]);
   const working = result.rows.some(row => ['queued', 'running'].includes(row.status));
   useEffect(() => {
@@ -43,20 +72,10 @@ export function ReportWorkspace({ active, canWrite, entityId }: { active: boolea
   }, [active, JSON.stringify(query), tick]);
   useEffect(() => {
     if (!active || !working) return;
-    const timer = setTimeout(() => setTick(value => value + 1), 2000);
+    const timer = setTimeout(() => bump(), 2000);
     return () => clearTimeout(timer);
   }, [active, working, result]);
 
-  async function post(action: string, payload: any) {
-    const body = `${action}:${JSON.stringify(payload)}`;
-    if (pendingKey.current?.body !== body) pendingKey.current = { body, key: crypto.randomUUID() };
-    setBusy(true);
-    try {
-      const response = await api.request({ skipNotify: true, url: `finance:${action}`, method: 'post', data: { ...payload, request_key: pendingKey.current.key } });
-      pendingKey.current = undefined; setTick(value => value + 1);
-      return response.data.data;
-    } finally { setBusy(false); }
-  }
   async function generate(payload: any) {
     try {
       const outcome = await post('requestReports', payload);
@@ -84,7 +103,7 @@ export function ReportWorkspace({ active, canWrite, entityId }: { active: boolea
     </Space> },
   ];
   return <div data-finance-reports>
-    <PageIntro description="按 Finance 中已录入的申赎、净值、收益和基准，计算投资主体的月报。每份月报固定使用生成时的一致数据快照；复核校验结果后发布。" />
+    <PageIntro description="按 Finance 中已录入的申赎、净值、收益和基准，计算投资主体的月报。每份月报固定使用生成时的一致数据快照；复核校验结果后发布；按月跟踪进度请到“本月看板”。" />
     <Card className="finance-panel" title="生成月报" style={{ marginBottom: 16 }}>
       <Space wrap align="start">
         <Radio.Group value={scope} onChange={event => setScope(event.target.value)} optionType="button" options={[{ value: 'entity', label: '按投资主体' }, { value: 'client', label: '按客户编号' }]} />
@@ -93,6 +112,7 @@ export function ReportWorkspace({ active, canWrite, entityId }: { active: boolea
           : <Input aria-label="月报客户编号" style={{ width: 220 }} placeholder="客户编号，生成其下全部有效主体" value={target.client_code} onChange={event => setTarget(old => ({ ...old, client_code: event.target.value }))} />}
         <Input aria-label="报告月份" type="month" prefix={prefix('报告月份')} style={{ width: 220 }} value={target.report_month} onChange={event => setTarget(old => ({ ...old, report_month: event.target.value }))} />
         <RemoteSelect aria-label="月报基准" mode="multiple" maxCount={20} style={{ minWidth: 260 }} resource="benchmarks" placeholder="基准：默认取报告月有数值的基准" allowClear value={target.benchmark_ids} onChange={value => setTarget(old => ({ ...old, benchmark_ids: value }))} />
+        <Button disabled={scope !== 'entity' || !target.entity_id || !target.report_month} onClick={() => setCheckOpen(true)}>就绪检查</Button>
         <Button type="primary" loading={busy} disabled={!canWrite || !target.report_month || (scope === 'entity' ? !target.entity_id : !target.client_code?.trim())} onClick={submit}>生成月报</Button>
       </Space>
       {!canWrite && <Alert style={{ marginTop: 12 }} type="info" message="当前角色只读，可以查看和下载月报，不能生成或发布" />}
@@ -105,17 +125,18 @@ export function ReportWorkspace({ active, canWrite, entityId }: { active: boolea
           <Input aria-label="月报筛选月份" type="month" prefix={prefix('月份')} style={{ width: 200 }} value={query.report_month || ''} onChange={event => change('report_month', event.target.value)} />
           <Select aria-label="月报筛选状态" prefix={prefix('状态')} placeholder="全部" allowClear style={{ minWidth: 150 }} value={query.status} onChange={value => change('status', value)} options={Object.entries(statusLabels).map(([value, [label]]) => ({ value, label }))} />
         </div>
-        <div className="finance-toolbar-meta"><Text type="secondary">共 {result.count ?? 0} 条</Text><Button aria-label="刷新月报" icon={<ReloadOutlined />} onClick={() => setTick(value => value + 1)} /></div>
+        <div className="finance-toolbar-meta"><Text type="secondary">共 {result.count ?? 0} 条</Text><Button aria-label="刷新月报" icon={<ReloadOutlined />} onClick={bump} /></div>
       </div>
       {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 12 }} />}
       <Table className="finance-table" rowKey="id" size="middle" loading={loading} dataSource={result.rows} columns={columns} scroll={{ x: 1300 }} locale={{ emptyText: error ? '读取失败' : '还没有月报，先在上方选择主体和月份生成' }}
         pagination={{ current: query.page, pageSize: query.page_size, total: result.count, showSizeChanger: true, onChange: (page, page_size) => setQuery(old => ({ ...old, page: page_size !== old.page_size ? 1 : page, page_size })) }} />
     </Card>
     <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
+    <ReadinessDrawer open={checkOpen} close={() => setCheckOpen(false)} entityId={target.entity_id} month={target.report_month} benchmarkIds={target.benchmark_ids} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh + tick} openTarget={openTarget} onGenerated={bump} />
   </div>;
 }
 
-function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
+export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
   const api = useAPIClient();
   const [run, setRun] = useState<any>(); const [html, setHtml] = useState<Record<string, string>>({}); const [error, setError] = useState('');
   const [note, setNote] = useState(''); const [confirming, setConfirming] = useState(false);
@@ -161,14 +182,8 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
   const previewRef = useRef<HTMLIFrameElement | null>(null);
   useEffect(() => linkCells(previewRef.current), [trace, html.report]);
   async function download(kind: string) {
-    try {
-      const response = await api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id, kind, download: '1' }, responseType: 'blob' });
-      const url = URL.createObjectURL(response.data); const link = document.createElement('a');
-      const name = { report: '投资组合回顾', checks: '校验报告', snapshot: '月报数据快照', workbook: '复核工作簿' }[kind];
-      const ext = { snapshot: 'json', workbook: 'xlsx' }[kind] || 'html';
-      link.href = url; link.download = `${name}_${run.client_code}_${run.report_month}${kind === 'workbook' && run.status !== 'published' ? '_草稿' : ''}.${ext}`; link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch { message.error('下载失败，请重试'); }
+    try { await downloadReport(api, run, kind); }
+    catch { message.error('下载失败，请重试'); }
   }
   async function publish() {
     try { await post('publishReport', { id: run.id, technical_revision: run.technical_revision, ...(note.trim() ? { review_note: note.trim() } : {}) }); message.success('月报已发布'); setConfirming(false); setNote(''); }
@@ -199,6 +214,7 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
         </div>
       </> },
       { key: 'checks', label: <Space size={4}>校验结果<Counts counts={counts} /></Space>, children: <>
+        {/* 第二批：每条校验发现的 action 位置放 TargetButton（Finding.target）。 */}
         {!run.findings?.length && <Alert type="success" showIcon message="全部检查项通过" />}
         {run.findings?.map((f, i) => <Alert key={i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
           message={<Space wrap><Tag bordered={false}>{f.category}</Tag><Text strong>{f.title}</Text></Space>} description={<><Paragraph style={{ marginBottom: 4 }}>{f.detail}</Paragraph>{f.suggestion && <Text type="success">建议：{f.suggestion}</Text>}</>} />)}

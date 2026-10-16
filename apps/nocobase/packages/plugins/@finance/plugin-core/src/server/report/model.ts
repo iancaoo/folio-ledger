@@ -51,6 +51,8 @@ export type Dataset = {
   lineage?: Lineage;
   /** Every return record considered per fund-month and why it was or was not used. */
   returnSelections?: Record<string, Record<Month, ReturnCandidate[]>>;
+  /** Record locators for each fund key and benchmark name; not used by the engine. */
+  refs?: { funds: Record<string, { share_class_id: string; fund_id: string; fund_kind: string; currency: string }>; benchmarks: Record<string, string> };
 };
 export type ReturnCandidate = { date: string; value: number; kind: '正式' | '估算' | '未标注'; used: boolean; reason: string; src: Src };
 /** Finance record locator: record id (or business key), column, and the import batch row it came from. */

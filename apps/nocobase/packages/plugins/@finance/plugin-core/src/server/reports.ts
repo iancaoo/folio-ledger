@@ -19,7 +19,7 @@ const CLAIM_MS = 5 * 60000;
 const STATUSES = ['queued', 'running', 'ready', 'failed', 'published', 'superseded'];
 const DOCUMENT_STATUSES = ['ready', 'published', 'superseded'];
 // Option sets that define allowed fund tags, per fund kind.
-const TAG_SOURCES = {
+export const TAG_SOURCES = {
   risk: { third_party: '三方基金页面:30', proprietary: '自营基金页面:26' },
   region: { third_party: '三方基金页面:31', proprietary: '自营基金页面:27' },
   strategy: { third_party: '三方基金页面:28', proprietary: '自营基金页面:24' },
@@ -28,6 +28,13 @@ const LIST_COLUMNS = `r.id,r.entity_id,r.report_month,r.report_date::text,r.stat
   r.snapshot_at,r.snapshot_sha256,r.engine_version,r.review_note,r.benchmark_ids,r.technical_revision,r.created_at,r.updated_at,r.summary,
   e.legal_name,e.common_name,g.client_code`;
 const LIST_JOINS = ' JOIN finance_investment_entities e ON e.id=r.entity_id JOIN finance_client_groups g ON g.id=e.client_group_id';
+const NEWER_FINAL = `EXISTS (SELECT 1 FROM finance_report_runs n WHERE n.entity_id=r.entity_id AND n.report_month=r.report_month AND n.status IN ('ready','published','superseded') AND (n.created_at>r.created_at OR (n.created_at=r.created_at AND n.id>r.id)))`;
+const LIST_ORDER = {
+  newest: 'r.created_at DESC,r.id',
+  oldest: 'r.created_at ASC,r.id',
+  errors: `COALESCE((r.summary->'counts'->>'错误')::int,0) DESC, COALESCE((r.summary->'counts'->>'警告')::int,0) DESC, r.created_at ASC, r.id`,
+  published: 'r.published_at DESC NULLS LAST, r.id',
+};
 
 const plain = (row: any) => row?.get ? row.get({ plain: true }) : row;
 function onlyKeys(payload: any, keys: string[]) {
@@ -155,15 +162,30 @@ export class FinanceReports {
     const paging = pagination(input); const params: any = { ...paging }; const where = ['TRUE'];
     if (input.entity_id) { params.entity_id = uuid(input.entity_id, 'entity_id'); where.push('r.entity_id=:entity_id'); }
     if (input.report_month) { params.report_month = this.month(input.report_month); where.push('r.report_month=:report_month'); }
+    if (input.month_from) { params.month_from = this.month(input.month_from); where.push('r.report_month>=:month_from'); }
+    if (input.month_to) { params.month_to = this.month(input.month_to); where.push('r.report_month<=:month_to'); }
+    if (params.month_from && params.month_to && params.month_from > params.month_to) throw new FinanceError('INVALID_FILTER', '开始月份不能晚于结束月份', 'month_from');
     if (input.status) {
-      if (!STATUSES.includes(input.status)) throw new FinanceError('INVALID_FILTER', '月报状态无效', 'status');
-      params.status = input.status; where.push('r.status=:status');
+      const statuses = String(input.status).split(',').map(item => item.trim()).filter(Boolean);
+      if (!statuses.length || statuses.some(item => !STATUSES.includes(item))) throw new FinanceError('INVALID_FILTER', '月报状态无效', 'status');
+      params.statuses = statuses; where.push('r.status IN (:statuses)');
     }
+    if (input.client_code !== undefined && input.client_code !== '') {
+      if (typeof input.client_code !== 'string') throw new FinanceError('INVALID_FILTER', '客户编号无效', 'client_code');
+      const clientCode = input.client_code.trim();
+      if (!clientCode || clientCode.length > 30) throw new FinanceError('INVALID_FILTER', '客户编号无效', 'client_code');
+      params.client_code = clientCode; where.push('g.client_code=:client_code');
+    }
+    if (input.latest_only === '1' || input.latest_only === true) where.push(`NOT ${NEWER_FINAL}`);
+    const order = input.order || 'newest';
+    if (!Object.hasOwn(LIST_ORDER, order)) throw new FinanceError('INVALID_SORT', '月报列表不支持此排序', 'order');
     if (input.search !== undefined && (typeof input.search !== 'string' || input.search.length > 200)) throw new FinanceError('INVALID_SEARCH', '搜索文本最多 200 字');
     if (input.search?.trim()) { params.search = `%${input.search.trim().replace(/[\\%_]/g, '\\$&')}%`; where.push('(e.legal_name ILIKE :search OR e.common_name ILIKE :search OR g.client_code ILIKE :search)'); }
     const [{ count }] = await this.sql(`SELECT count(*)::int AS count FROM finance_report_runs r${LIST_JOINS} WHERE ${where.join(' AND ')}`, params);
-    const rows = await this.sql(`SELECT ${LIST_COLUMNS} FROM finance_report_runs r${LIST_JOINS} WHERE ${where.join(' AND ')}
-      ORDER BY r.created_at DESC,r.id LIMIT :page_size OFFSET :offset`, params);
+    const rows = await this.sql(`SELECT ${LIST_COLUMNS}, NOT ${NEWER_FINAL} AS is_latest,
+      EXISTS (SELECT 1 FROM finance_report_runs p WHERE p.entity_id=r.entity_id AND p.report_month=r.report_month AND p.status='published' AND p.id<>r.id) AS has_published
+      FROM finance_report_runs r${LIST_JOINS} WHERE ${where.join(' AND ')}
+      ORDER BY ${LIST_ORDER[order as keyof typeof LIST_ORDER]} LIMIT :page_size OFFSET :offset`, params);
     const users = await this.userNames(rows.flatMap(row => [row.owner_id, row.published_by]));
     return { rows: rows.map(row => this.view(row, users)), count, page: paging.page, page_size: paging.page_size };
   }
@@ -174,8 +196,12 @@ export class FinanceReports {
     return Object.fromEntries(rows.map((row: any) => [String(row.id), row.get('nickname') || row.get('username') || `用户 ${row.id}`]));
   }
   view(row: any, users: Record<string, string>) {
-    const { summary, ...rest } = row;
-    return { ...rest, owner_name: users[row.owner_id] ?? null, publisher_name: users[row.published_by] ?? null,
+    const { summary, is_latest, has_published, ...rest } = row;
+    const flag = (value: any) => value === true || value === 't' || value === 'true' || value === 1;
+    return { ...rest,
+      ...(is_latest === undefined ? {} : { is_latest: flag(is_latest) }),
+      ...(has_published === undefined ? {} : { has_published: flag(has_published) }),
+      has_trace: !!summary?.trace, owner_name: users[row.owner_id] ?? null, publisher_name: users[row.published_by] ?? null,
       summary: summary && { client: summary.client, currency: summary.currency, ytd: summary.ytd, irr: summary.irr, total_nav: summary.total_nav, counts: summary.counts } };
   }
   async get(id: string) {

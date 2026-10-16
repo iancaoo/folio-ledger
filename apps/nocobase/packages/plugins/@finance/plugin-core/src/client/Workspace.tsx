@@ -2,9 +2,9 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Card, Col, Collapse, Form, Input, Modal, Row, Select, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AppstoreOutlined, FundOutlined, TeamOutlined, SwapOutlined, ImportOutlined, CheckCircleOutlined, SettingOutlined, UnorderedListOutlined, DatabaseOutlined, LineChartOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FundOutlined, TeamOutlined, SwapOutlined, ImportOutlined, CheckCircleOutlined, SettingOutlined, UnorderedListOutlined, DatabaseOutlined, LineChartOutlined, FileTextOutlined } from '@ant-design/icons';
 import { DateText, FundKind, Num, PageIntro, RecordState, ShareCell, StatCard, TradeType, numColumn } from './ui';
-import { Workbench, FundCenter, localToday } from './BusinessPages';
+import { Workbench, FundCenter, localToday, lastMonth } from './BusinessPages';
 import catalog from '../shared/field-catalog.json';
 import navigation from '../shared/navigation.json';
 import { decimal, Decimal, FinanceError } from '../shared/values';
@@ -21,6 +21,8 @@ import { DraftWorkspace, useEntryDraft } from './EntryDrafts';
 import { QualityWorkspace } from './QualityWorkspace';
 import { ExportWorkspace } from './ExportWorkspace';
 import { ReportWorkspace } from './ReportWorkspace';
+import { ReportArchive, ReportBoard, ReviewQueue } from './ReportCenter';
+import type { ReportTarget } from '../shared/report-center';
 
 const { Title, Text } = Typography;
 const OptionsContext = createContext<any[]>([]);
@@ -88,6 +90,7 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
     }).catch(() => { /* Business API permissions remain independent of native menu discovery. */ });
   }, [api]);
   const active = embeddedPage || route.get('page') || 'home';
+  const reportMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(route.get('reportMonth') || '') ? route.get('reportMonth')! : lastMonth();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(route.get('date') || '') ? route.get('date')! : localToday();
   const fundId = route.get('fund') || undefined;
   const fundSection = ['info', 'classes', 'nav', 'compositions', 'files'].includes(route.get('section') || '') ? route.get('section')! : 'info';
@@ -284,6 +287,22 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
     else { seriesForm.resetFields(); seriesForm.setFieldsValue({data_type:type,share_class_id:row.share_class_id,date:row.nav_date || row.return_date,value:type==='returns'?new Decimal(row.mtd_return).times('100').toFixed():row.nav_per_unit,estimate_label:row.estimate_label}); open('series'); setEntryFocus([type==='returns'?'estimate_label':'date']); }
     setEntryNotice({ row, type });
   }
+  async function openReportTarget(target: ReportTarget) {
+    try {
+      if (target.kind === 'nav') { navigate({ page: 'funds', fund: target.fund_id, section: 'nav', share: target.share_class_id, date: target.date }); return; }
+      if (target.kind === 'trades') { navigate({ page: 'trades' }); return; }
+      if (target.kind === 'positions') { navigate({ page: 'positions' }); return; }
+      if (target.kind === 'entity') { await editEntity({ id: target.entity_id }); return; }
+      if (target.kind === 'fund') { await editFund({ id: target.fund_id }); setEntryFocus(['fund', target.field]); return; }
+      if (target.kind === 'benchmark') { benchmarkValueForm.resetFields(); benchmarkValueForm.setFieldsValue({ benchmark_id: target.benchmark_id || undefined, value_date: target.date }); open('benchmarkValue'); setEntryFocus(['index_value']); return; }
+      if (target.kind === 'options') { await refreshMetadata(); navigate({ page: 'options', option: target.source_key, targetNonce: String(Date.now()) }); return; }
+      if (target.kind !== 'return') return;
+      const row = await read('seriesAt', { data_type: 'returns', parent_id: target.share_class_id, date: target.date });
+      seriesForm.resetFields();
+      if (row) { seriesForm.setFieldsValue({ data_type: 'returns', share_class_id: target.share_class_id, date: target.date, value: new Decimal(row.mtd_return).times('100').toFixed(), estimate_label: row.estimate_label }); open('series'); setEntryFocus(['estimate_label']); setEntryNotice({ row, type: 'returns' }); }
+      else { seriesForm.setFieldsValue({ data_type: 'returns', share_class_id: target.share_class_id, date: target.date }); open('series'); setEntryFocus(['value']); }
+    } catch (e: any) { setError(e.response?.data?.errors?.[0]?.message || e.message); }
+  }
   const issueNotice = entryNotice && <Alert type="info" style={{marginBottom:12}} message={`当前原记录日期：${entryNotice.row.nav_date || entryNotice.row.return_date || entryNotice.row.value_date}`} description="同日保存会覆盖原值。修改日期会另存一条；若原日期错误，请先删除错误记录，再按正确日期录入。" action={<Button danger disabled={!canWrite || busy} onClick={()=>removeSeries(entryNotice.type,entryNotice.row)}>删除错误记录</Button>} />;
   function changeDeletion(table: string, row: any) {
     Modal.confirm({ title: `${row.is_deleted ? '恢复' : '删除'}${row.short_name || row.legal_name}`, content: row.is_deleted ? '恢复后可继续录入新业务，历史记录保留。' : '历史交易、净值和持仓继续保留。删除后新录入选择器隐藏此对象，可随时恢复。', okText: row.is_deleted ? '恢复' : '确认删除', okButtonProps: { danger: !row.is_deleted }, onOk: () => save('setDeleted', { table, id: row.id, technical_revision: row.technical_revision, deleted: !row.is_deleted }) });
@@ -369,7 +388,10 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
   </Card> });
   tabs.push({ key: 'documents', label: '文档', children: <FileWorkspace metadata={metadata} fundId={documentFundId} setFundId={setDocumentFundId} active={active === 'documents'} /> });
   tabs.push({ key: 'export', label: '数据导出', children: <ExportWorkspace /> });
-  tabs.push({ key: 'reports', label: '客户月报', children: <ReportWorkspace active={active === 'reports'} canWrite={canWrite} entityId={route.get('reportEntity') || undefined} /> });
+  tabs.push({ key: 'report-board', label: '本月看板', children: <ReportBoard active={active === 'report-board'} canWrite={canWrite} canConfigure={metadata?.permissions?.configure} month={reportMonth} setMonth={value => navigate({ reportMonth: value }, { replace: true })} refresh={refresh} openTarget={openReportTarget} /> });
+  tabs.push({ key: 'report-review', label: '复核队列', children: <ReviewQueue active={active === 'report-review'} canWrite={canWrite} refresh={refresh} /> });
+  tabs.push({ key: 'report-archive', label: '月报归档', children: <ReportArchive active={active === 'report-archive'} canWrite={canWrite} refresh={refresh} /> });
+  tabs.push({ key: 'reports', label: '生成与记录', children: <ReportWorkspace active={active === 'reports'} canWrite={canWrite} entityId={route.get('reportEntity') || undefined} refresh={refresh} openTarget={openReportTarget} canConfigure={metadata?.permissions?.configure} /> });
   tabs.push({ key: 'compositions', label: '成分核对', children: <CompositionWorkspace refresh={refresh} fundId={compositionFundId} setFundId={setCompositionFundId} read={read} editFund={editFund} canWrite={canWrite} active={active === 'compositions'} /> });
   if (metadata?.permissions?.configure) tabs.push({ key: 'options', label: '字段候选配置', children: <OptionsWorkspace options={metadata.options || []} save={save} reload={refreshMetadata} target={optionTarget} /> });
   const enterNav = (row: any, date: string) => {
@@ -397,8 +419,9 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
       <a className="finance-link-card" href="/admin/settings" target="_blank" rel="noopener noreferrer"><span className="finance-link-card-icon"><SettingOutlined /></span><div><strong>平台设置 ↗</strong><span>角色权限、插件与主题在 NocoBase 平台设置中维护，新标签页打开。</span></div></a>
     </div>
   </div> });
-  const menu = [{ key: 'home', label: '工作台', icon: <AppstoreOutlined /> }, { key: 'funds', label: '基金中心', icon: <FundOutlined /> }, { key: 'entities', label: '客户中心', icon: <TeamOutlined /> }, { key: 'trades', label: '交易录入', icon: <SwapOutlined /> }, { key: 'imports', label: '导入中心', icon: <ImportOutlined /> }, { key: 'quality', label: '数据质量', icon: <CheckCircleOutlined /> }, { key: 'settings', label: '系统设置', icon: <SettingOutlined /> }];
-  const group = ['series', 'documents', 'compositions'].includes(active) ? 'funds' : ['positions', 'reports'].includes(active) ? 'entities' : ['options', 'benchmarks', 'fund-register'].includes(active) ? 'settings' : active;
+  const menu = [{ key: 'home', label: '工作台', icon: <AppstoreOutlined /> }, { key: 'funds', label: '基金中心', icon: <FundOutlined /> }, { key: 'entities', label: '客户中心', icon: <TeamOutlined /> }, { key: 'report-board', label: '报告中心', icon: <FileTextOutlined /> }, { key: 'trades', label: '交易录入', icon: <SwapOutlined /> }, { key: 'imports', label: '导入中心', icon: <ImportOutlined /> }, { key: 'quality', label: '数据质量', icon: <CheckCircleOutlined /> }, { key: 'settings', label: '系统设置', icon: <SettingOutlined /> }];
+  const REPORT_PAGES = ['report-board', 'report-review', 'report-archive', 'reports'];
+  const group = ['series', 'documents', 'compositions'].includes(active) ? 'funds' : active === 'positions' ? 'entities' : REPORT_PAGES.includes(active) ? 'report-board' : ['options', 'benchmarks', 'fund-register'].includes(active) ? 'settings' : active;
   const pageTitle = (embeddedPage && navigation.find(item => item.key === embeddedPage)?.title) || menu.find(item => item.key === group)?.label || tabs.find(item => item.key === active)?.label || '工作台';
   useEffect(() => { document.title = `${pageTitle} · Finance`; }, [pageTitle]);
   return <OptionsContext.Provider value={metadata?.options || []}><main className={`finance-workspace${embeddedPage ? ' finance-workspace-native' : ''}`} style={{ '--finance-primary': token.colorPrimary, '--finance-primary-bg': token.colorPrimaryBg, '--finance-bg': token.colorBgLayout, '--finance-panel': token.colorBgContainer, '--finance-border': token.colorBorderSecondary, '--finance-text': token.colorText, '--finance-muted': token.colorTextSecondary, '--finance-radius': `${token.borderRadiusLG}px`, '--finance-warning': token.colorWarning, '--finance-warning-bg': token.colorWarningBg, '--finance-error': token.colorError, '--finance-error-bg': token.colorErrorBg, '--finance-success': token.colorSuccess, '--finance-success-bg': token.colorSuccessBg } as React.CSSProperties}>
@@ -412,7 +435,8 @@ export function FinanceWorkspace({ embeddedPage }: { embeddedPage?: string } = {
         ? <div className="finance-demo-banner"><Tag color="gold" bordered={false}>模拟数据</Tag>当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。{!canWrite && <Tag bordered={false}>只读</Tag>}</div>
         : <div className="finance-demo-note">当前使用模拟数据。正式录入前，请先确认业务候选项与原始资料。</div>)}
       {error && !dialog && <Alert closable onClose={() => setError('')} type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
-      {!embeddedPage && group === 'entities' && <div className="finance-subnav"><Button type={active === 'entities' ? 'primary' : 'default'} onClick={() => setActive('entities')}>客户与主体</Button><Button type={active === 'positions' ? 'primary' : 'default'} onClick={() => setActive('positions')}>持仓核对</Button><Button type={active === 'reports' ? 'primary' : 'default'} onClick={() => setActive('reports')}>客户月报</Button></div>}
+      {!embeddedPage && group === 'entities' && <div className="finance-subnav"><Button type={active === 'entities' ? 'primary' : 'default'} onClick={() => setActive('entities')}>客户与主体</Button><Button type={active === 'positions' ? 'primary' : 'default'} onClick={() => setActive('positions')}>持仓核对</Button></div>}
+      {!embeddedPage && group === 'report-board' && <div className="finance-subnav"><Button type={active === 'report-board' ? 'primary' : 'default'} onClick={() => setActive('report-board')}>本月看板</Button><Button type={active === 'report-review' ? 'primary' : 'default'} onClick={() => setActive('report-review')}>复核队列</Button><Button type={active === 'report-archive' ? 'primary' : 'default'} onClick={() => setActive('report-archive')}>月报归档</Button><Button type={active === 'reports' ? 'primary' : 'default'} onClick={() => setActive('reports')}>生成与记录</Button></div>}
       {embeddedPage === 'options' && metadata && !metadata.permissions?.configure ? <Alert type="warning" message="当前角色没有业务配置权限" /> : <Tabs className="finance-page-panels" activeKey={tabs.some(tab => tab.key === active) ? active : 'home'} renderTabBar={() => <></>} items={tabs} />}
     </div></div>
     <Modal open={dialog === 'versions'} title="基金资料历史版本" width={1080} footer={null} onCancel={() => setDialog(undefined)} destroyOnClose><VersionViewer versions={versions} /></Modal>

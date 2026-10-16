@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Badge, Button, Card, Descriptions, Empty, Input, Pagination, Progress, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { DatabaseOutlined, ExclamationCircleOutlined, ImportOutlined, LineChartOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, ExclamationCircleOutlined, FileTextOutlined, ImportOutlined, LineChartOutlined } from '@ant-design/icons';
 import { BatchStatus, DateText, FundKind, Num, PageIntro, ShareCell, StatCard, TwoLine, numColumn } from './ui';
 import { QueryTable, dateControls } from './QueryTable';
 import { FileWorkspace } from './FileWorkspace';
@@ -10,6 +10,7 @@ import { issueCategories } from '../shared/issues';
 
 const { Title, Text } = Typography;
 export const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+export const lastMonth = () => { const [y, m] = localToday().split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; };
 const batchLabels = { awaiting_file: '等待文件', parsing: '解析中', staged: '待匹配', ready: '可提交', needs_correction: '需纠错', committed: '已提交', failed: '解析失败', cancelled: '已取消' };
 function useRead(action: string, params: any, refresh: number, enabled = true) {
   const api = useAPIClient(); const [result, setResult] = useState<any>(); const [error, setError] = useState(''); const [loading, setLoading] = useState(true); const [retry, setRetry] = useState(0);
@@ -35,6 +36,12 @@ export function Workbench({ date, setDate, refresh, active, openFund, navigate, 
   const counts = coverage.result?.summary;
   const recent = quality.result?.recent_imports || [];
   const pendingBatches = recent.filter(row => openBatchStatuses.has(row.status)).length;
+  const reportMonth = lastMonth();
+  const reports = useRead('reportBoard', { report_month: reportMonth, with_readiness: '0', page_size: 1 }, refresh, active);
+  const reportCounts = reports.result?.counts;
+  const reportHint = reports.error ? '月报进度读取失败' : reportCounts
+    ? `待复核 ${reportCounts.review} · 未生成 ${reportCounts.not_ready + reportCounts.ready_to_generate + reportCounts.not_checked} · 失败 ${reportCounts.failed}`
+    : '正在读取';
   useEffect(() => { if (coverage.result) setPage(current => Math.min(current, Math.max(1, Math.ceil(coverage.result.count / 6)))); }, [coverage.result]);
   return <div className="finance-home" data-finance-home>
     <PageIntro description="从待核对事项开始：先补净值，再处理校验问题和导入批次。" extra={<>
@@ -46,6 +53,7 @@ export function Workbench({ date, setDate, refresh, active, openFund, navigate, 
         hint={counts ? <><Progress percent={counts.total ? Math.round(counts.recorded / counts.total * 100) : 100} size="small" showInfo={false} />{counts.recorded} / {counts.total} 个有效份额已录入 · 未录入不代表逾期</> : '正在读取'} />
       <StatCard label="当前校验问题" tone={quality.result?.count ? 'danger' : 'success'} icon={<ExclamationCircleOutlined />} value={quality.result?.count} unit="项" hint="点击查看数据质量" onClick={() => openQuality()} />
       <StatCard label="我最近的导入" tone={pendingBatches ? 'warning' : 'default'} icon={<ImportOutlined />} value={quality.result ? pendingBatches : undefined} unit="个待处理" hint={`最近 ${recent.length} 个批次 · 点击进入导入中心`} onClick={() => navigate('imports')} />
+      <StatCard label={`${reportMonth} 月报`} tone={reportCounts?.review ? 'warning' : 'default'} icon={<FileTextOutlined />} value={reports.error ? '—' : reportCounts?.published} unit={reportCounts ? `/ ${reportCounts.scope} 已发布` : undefined} hint={reportHint} onClick={() => navigate('report-board')} />
       <StatCard label="资料总览" icon={<DatabaseOutlined />} value={summary.funds} unit="只基金" hint={`${summary.investment_entities ?? '—'} 个投资主体 · 含历史停用记录`} />
     </div>
     <div className="finance-split">

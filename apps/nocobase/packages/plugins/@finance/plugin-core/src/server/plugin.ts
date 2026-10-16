@@ -15,6 +15,7 @@ import { FinanceIssues } from './issues';
 import { FinanceExports } from './exports';
 import { FinanceReportSnapshot } from './report-snapshot';
 import { FinanceReports } from './reports';
+import { FinanceReportCenter } from './report-center';
 
 export default class FinancePlugin extends Plugin {
   service: FinanceService;
@@ -33,6 +34,7 @@ export default class FinancePlugin extends Plugin {
     const imports = new FinanceImports(service);
     const options = new FinanceOptions(service);
     const reports = new FinanceReports(service, reportSnapshot, options);
+    const reportCenter = new FinanceReportCenter(service, reportSnapshot, reports);
     const files = new FinanceFiles(service, this.app.pm.get('file-manager'));
     const rolesOf = (ctx: any) => ctx.state.currentRoles || [ctx.state.currentRole];
     const canConfigure = (ctx: any) => rolesOf(ctx).some((role: string) => ['root', 'admin', 'finance_configurator'].includes(role));
@@ -190,6 +192,8 @@ export default class FinancePlugin extends Plugin {
       if (action === 'retryReport') setImmediate(() => void reports.process(result.id).catch(error => this.log.error('Finance report retry failed', { error })));
       return result;
     }, true);
+    actions.reportBoard = respond(async ctx => reportCenter.board(ctx.action.params));
+    actions.reportReadiness = respond(async ctx => reportCenter.readiness(ctx.action.params));
     actions.reportRuns = respond(async ctx => reports.list(ctx.action.params));
     actions.reportRun = respond(async ctx => reports.get(ctx.action.params.id));
     actions.reportTrace = respond(async ctx => reports.trace(ctx.action.params.id));

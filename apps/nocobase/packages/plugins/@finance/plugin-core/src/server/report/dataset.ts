@@ -26,6 +26,7 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
   for (const s of held) perFund.set(s.fund_id, (perFund.get(s.fund_id) ?? 0) + 1);
 
   const funds: Record<string, Fund> = {}; const keyOf = new Map<string, string>();
+  const refs: NonNullable<Dataset['refs']> = { funds: {}, benchmarks: {} };
   const byCodePoint = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
   const sorted = [...held].sort((a, b) => byCodePoint(a.short_name, b.short_name) || byCodePoint(a.class_label || '', b.class_label || ''));
   sorted.forEach((s, order) => {
@@ -36,6 +37,7 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
       nameT3: s.class_label ? `${s.short_name} - ${s.class_label}` : s.short_name,
       risk: !role || role.endsWith('型') ? role : `${role}型`, region: (s.investment_region || '').trim(), strategy: (s.strategy || '').trim(),
       kind: s.fund_kind, currency: s.currency, order };
+    refs.funds[key] = { share_class_id: s.id, fund_id: s.fund_id, fund_kind: s.fund_kind, currency: s.currency };
   });
 
   const lineage: Lineage = { trades: {}, prices: {}, returns: {}, bench_levels: {}, tags: {} };
@@ -83,6 +85,7 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     : snap.benchmarks.filter((b: any) => snap.benchmark_values.some((v: any) => v.benchmark_id === b.id && toMonth(v.value_date) === asOf));
   if (benchmarkIds?.length && chosen.length !== new Set(benchmarkIds).size) throw new FinanceError('NOT_FOUND', '所选基准不存在', 'benchmark_ids', 404);
   const names = new Map<string, string>(chosen.map((b: any) => [b.id, b.name]));
+  refs.benchmarks = Object.fromEntries([...names].map(([id, name]) => [name, id]));
   // The latest level within a month is that month's closing level; snapshot rows are date ordered.
   const levels = new Map<string, Map<Month, number>>([...names.values()].map(name => [name, new Map()]));
   const levelRows = new Map<string, Map<Month, any>>([...names.values()].map(name => [name, new Map()]));
@@ -109,5 +112,5 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     if (count) provenance.push(['Finance', table, '模拟', count]);
   }
   const currencies = [...new Set<string>([...held.map(s => s.currency), ...txns.map((t: any) => t.currency)].filter(Boolean))].sort();
-  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies, lineage, returnSelections };
+  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies, lineage, returnSelections, refs };
 }

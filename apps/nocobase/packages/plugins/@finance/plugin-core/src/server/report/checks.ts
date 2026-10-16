@@ -121,20 +121,27 @@ export function checkSelection(ds: Dataset): Finding[] {
   return out;
 }
 
-export function checkTags(ds: Dataset, allowed: Allowed): Finding[] {
-  const out: Finding[] = [];
+export const TAG_FIELDS = { 风险分类: 'allocation_role', 投资地区: 'investment_region', 基金策略: 'strategy' } as const;
+export type TagProblem = { key: string; label: keyof typeof TAG_FIELDS; field: string; value: string; choices: string[]; level: Level };
+export function tagProblems(ds: Dataset, allowed: Allowed): TagProblem[] {
+  const out: TagProblem[] = [];
   for (const k of fundKeys(ds)) {
     const f = ds.funds[k];
     for (const [label, value, choices] of [
       ['风险分类', f.risk.replace(/型$/, ''), allowed.risk[f.kind] || []],
       ['投资地区', f.region, allowed.region[f.kind] || []],
       ['基金策略', f.strategy, allowed.strategy[f.kind] || []],
-    ] as Array<[string, string, string[]]>) {
-      if (!value) out.push(finding('错误', '基金标签', `${k}：缺少${label}`, '持仓分类无法计算。', `补充${label}。`, k));
-      else if (!choices.includes(value)) out.push(finding('警告', '基金标签', `${k}：${label}「${value}」不在字段清单的枚举值中`, `允许值：${choices.join('/') || '尚未配置'}。`, '补充枚举值或改用已有分类。', k));
+    ] as Array<[keyof typeof TAG_FIELDS, string, string[]]>) {
+      if (!value) out.push({ key: k, label, field: TAG_FIELDS[label], value, choices, level: '错误' });
+      else if (!choices.includes(value)) out.push({ key: k, label, field: TAG_FIELDS[label], value, choices, level: '警告' });
     }
   }
   return out;
+}
+export function checkTags(ds: Dataset, allowed: Allowed): Finding[] {
+  return tagProblems(ds, allowed).map(p => !p.value
+    ? finding('错误', '基金标签', `${p.key}：缺少${p.label}`, '持仓分类无法计算。', `补充${p.label}。`, p.key)
+    : finding('警告', '基金标签', `${p.key}：${p.label}「${p.value}」不在字段清单的枚举值中`, `允许值：${p.choices.join('/') || '尚未配置'}。`, '补充枚举值或改用已有分类。', p.key));
 }
 
 export function checkTotals(res: Result): Finding[] {
