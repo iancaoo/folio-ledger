@@ -15,6 +15,7 @@ import { fundKeys, monthEnd } from './report/model';
 import { findingTargets } from './report/targets';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
 import { reviewWorkbook } from './report/workbook';
+import { compareReports } from './report/compare';
 
 export const REPORT_ENGINE_VERSION = 'finance-report/2';
 const CLAIM_MS = 5 * 60000;
@@ -273,6 +274,20 @@ export class FinanceReports {
     if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
     if (!row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可追溯', 'id', 404);
     return { ...row.trace, record_refs: recordRefs(row.snapshot) };
+  }
+  async compare(input: any) {
+    const baseId = uuid(input.base_id, 'base_id');
+    const headId = uuid(input.head_id, 'head_id');
+    if (baseId === headId) throw new FinanceError('INVALID_ID', '请选择两个不同的月报', 'head_id');
+    const limit = input.limit === undefined || input.limit === '' ? 200 : Number(input.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new FinanceError('INVALID_FILTER', '对比条数须在 1 到 1000 之间', 'limit');
+    const rows = await this.sql(`SELECT id,entity_id,report_month,status,created_at,published_at,engine_version,benchmark_ids,snapshot_sha256,summary,findings,finding_reviews,trace,snapshot
+      FROM finance_report_runs WHERE id IN (:ids)`, { ids: [baseId, headId] });
+    if (rows.length !== 2) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
+    const result = compareReports(rows.find(row => row.id === baseId), rows.find(row => row.id === headId), limit);
+    const names = await this.userNames(Object.values(result.findings.base_reviews).map((item: any) => item.by));
+    for (const review of Object.values(result.findings.base_reviews) as any[]) review.by_name = names[review.by] ?? null;
+    return result;
   }
   async reviewFinding(payload: any, actor: string, transaction: any) {
     onlyKeys(payload, ['id', 'finding_key', 'status', 'note', 'expected_revision']);

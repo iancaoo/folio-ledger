@@ -7,6 +7,8 @@ import { renderChecks } from '../apps/nocobase/packages/plugins/@finance/plugin-
 import { traceLeafTarget } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/trace-source';
 import type { Finding } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/checks';
 import { findingFingerprint, findingKey, noteRequired, reviewGate } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/report-review';
+import { compareReports } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/server/report/compare';
+import { FinanceError as ReportError } from '../apps/nocobase/packages/plugins/@finance/plugin-core/src/shared/values';
 
 const trade = (id: string, type: string, units: string, date = '2026-08-01') => ({
   id, entity_id: 'entity-1', share_class_id: 'class-1', confirmation_date: date,
@@ -158,4 +160,31 @@ test('domain: finding reviews block publish only for open errors and needs-fix',
   assert.equal(reviewGate(keyed, fixing, '已核对').blockers[0].code, 'REVIEW_NEEDS_FIX');
   assert.equal(findingFingerprint({ ...error, code: 'DATA_MISSING', loc: { date: '2026-08-31' } }), 'DATA_MISSING|示例基金A|2026年8月|2026-08-31');
   assert.equal(findingFingerprint({ ...error, title: '示例 12 项' }), '数据缺失|示例基金A|2026年8月|示例 # 项');
+});
+
+function compareRun(id: string, extra: any = {}) {
+  return {
+    id, entity_id: '00000000-0000-4000-8000-0000000000e1', report_month: '2026-08', status: 'ready', created_at: '2026-10-01',
+    engine_version: 'finance-report/2', benchmark_ids: null, snapshot_sha256: 'same', summary: { currency: 'USD', ytd: 0.1, irr: 0.2, total_nav: 100, total_invested: 80, months: [{ month: '2026-08', nav: 100, flow: 0, return: 0.01 }], funds: [{ key: '示例基金A', weight: 1, nav: 100, invested: 80, ytd: 0.1 }] },
+    findings: [], finding_reviews: { items: {} }, snapshot: { share_classes: [], transactions: [], fund_navs: [], fund_returns: [], benchmark_values: [] }, ...extra,
+  };
+}
+test('domain: report compare matches leaves by record identity', () => {
+  const leaf = (id: string, src: any, value: number, batch = 'b1') => ({ op: 'leaf', label: id, value, src: { ...src, batch, row: 1 } });
+  const baseTrace = { schema: 'return-report.trace/v1', outputs: { ytd: 'out' }, nodes: { out: { op: 'sum', label: 'YTD', value: 0.1 }, a: leaf('a', { table: 'finance_transactions', id: 't1', col: 'amount' }, 10), b: leaf('b', { table: 'finance_transactions', id: 't2', col: 'amount' }, 20) } };
+  const headTrace = { schema: 'return-report.trace/v1', outputs: { ytd: 'out' }, nodes: { out: { op: 'sum', label: 'YTD', value: 0.2 }, shifted: leaf('shifted', { table: 'finance_transactions', id: 't1', col: 'amount' }, 10), inserted: leaf('inserted', { table: 'finance_transactions', id: 't9', col: 'amount' }, 5), b: leaf('b', { table: 'finance_transactions', id: 't2', col: 'amount' }, 20, 'b2') } };
+  const compared = compareReports(compareRun('base', { trace: baseTrace, findings: [{ level: '警告', category: '数据缺失', title: '示例 1', detail: '', suggestion: '', fund: '示例基金A', month: '' }] }), compareRun('head', { status: 'published', trace: headTrace, summary: { currency: 'USD', ytd: 0.2, irr: 0.2, total_nav: 100, total_invested: 80, months: [], funds: [] } }));
+  assert.equal(compared.data.source, 'trace');
+  assert.deepEqual(compared.data.leaves.map(item => item.change).sort(), ['added', 'source']);
+  assert.equal(compared.metrics[0].key, 'ytd');
+  assert.equal(compared.findings.removed.length, 1);
+  assert.equal(compared.funds[0].change, 'removed');
+  const missing = compareReports(compareRun('base', { trace: null, snapshot: { transactions: [{ id: 't1', confirmation_date: '2026-08-01', amount: 1 }] } }), compareRun('head', { trace: null, snapshot: { transactions: [{ id: 't1', confirmation_date: '2026-08-01', amount: 2 }, { id: 't2', confirmation_date: '2026-09-01', amount: 9 }] } }));
+  assert.equal(missing.data.reason, 'both_no_trace');
+  assert.deepEqual(missing.data.leaves.map(item => item.change), ['value']);
+  const one = compareReports(compareRun('base', { trace: null }), compareRun('head', { trace: headTrace }));
+  assert.equal(one.data.reason, 'base_no_trace');
+  const mismatch = compareReports(compareRun('base', { trace: { ...baseTrace, schema: 'old' } }), compareRun('head', { trace: headTrace }));
+  assert.equal(mismatch.data.reason, 'schema_mismatch');
+  assert.throws(() => compareReports(compareRun('base', { entity_id: 'other' }), compareRun('head')), (error: ReportError) => error.code === 'COMPARE_SCOPE');
 });

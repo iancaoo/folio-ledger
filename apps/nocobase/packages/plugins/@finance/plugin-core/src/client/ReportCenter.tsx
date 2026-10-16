@@ -237,17 +237,17 @@ function useRunList(active: boolean, query: any, tick: number, refresh: number) 
 export function ReviewQueue({ active, canWrite, refresh, openTarget, canConfigure }: { active: boolean; canWrite: boolean; refresh: number; openTarget?: (target: ReportTarget) => void; canConfigure?: boolean }) {
   const { post, busy, tick, bump } = useReportPost();
   const [search, setSearch] = useState(''); const [month, setMonth] = useState(''); const [latest, setLatest] = useState(true); const [order, setOrder] = useState('errors');
-  const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(20); const [openId, setOpenId] = useState<string>();
+  const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(20); const [openId, setOpenId] = useState<string>(); const [initialTab, setInitialTab] = useState('report');
   const query = { status: 'ready', order, latest_only: latest ? '1' : undefined, search: search || undefined, report_month: month || undefined, page, page_size: pageSize };
   const { result, loading, error } = useRunList(active, query, tick, refresh);
   const columns: any[] = [
-    { title: '投资主体', dataIndex: 'legal_name', width: 220, render: (value: string, row: any) => <TwoLine main={<Button className="finance-text-link" type="link" onClick={() => setOpenId(row.id)}>{row.common_name || value}</Button>} sub={`客户编号 ${row.client_code}`} /> },
+    { title: '投资主体', dataIndex: 'legal_name', width: 220, render: (value: string, row: any) => <TwoLine main={<Button className="finance-text-link" type="link" onClick={() => { setInitialTab('report'); setOpenId(row.id); }}>{row.common_name || value}</Button>} sub={`客户编号 ${row.client_code}`} /> },
     { title: '报告月份', dataIndex: 'report_month', width: 110, render: (value: string) => <span className="finance-date">{value}</span> },
     { title: '校验', width: 220, render: (_: unknown, row: any) => <Counts counts={row.summary?.counts} /> },
     { title: '复核进度', width: 140, render: (_: unknown, row: any) => row.review?.needs_fix ? `需修改 ${row.review.needs_fix}` : row.review?.open_errors ? `未处理错误 ${row.review.open_errors}` : '已处理' },
     { title: '版本', width: 180, render: (_: unknown, row: any) => <Space direction="vertical" size={0}>{row.is_latest === false && <Tooltip title="同主体同月已有更新的月报，建议复核最新版本"><Tag color="warning" bordered={false}>有更新版本</Tag></Tooltip>}{row.has_published && <Tag bordered={false}>将替代已发布版本</Tag>}</Space> },
     { title: '生成', width: 180, render: (_: unknown, row: any) => <TwoLine main={row.owner_name || '—'} sub={new Date(row.created_at).toLocaleString('zh-CN')} /> },
-    { title: '操作', width: 90, fixed: 'right', render: (_: unknown, row: any) => <Button type="link" size="small" onClick={() => setOpenId(row.id)}>复核</Button> },
+    { title: '操作', width: 160, fixed: 'right', render: (_: unknown, row: any) => <Space size={0}><Button type="link" size="small" onClick={() => { setInitialTab('report'); setOpenId(row.id); }}>复核</Button>{row.has_published && <Button type="link" size="small" onClick={() => { setInitialTab('compare'); setOpenId(row.id); }}>对比已发布</Button>}</Space> },
   ];
   return <div data-finance-report-review>
     <PageIntro description="已生成、等待复核发布的月报。错误多的排在前面；打开后可预览、追溯计算并发布。" />
@@ -265,7 +265,7 @@ export function ReviewQueue({ active, canWrite, refresh, openTarget, canConfigur
       <Table className="finance-table" rowKey="id" size="middle" loading={loading} dataSource={result.rows} columns={columns} scroll={{ x: 1000 }} locale={{ emptyText: error ? '读取失败' : '没有待复核的月报' }}
         pagination={{ current: page, pageSize, total: result.count, showSizeChanger: true, onChange: (next, size) => { setPage(size !== pageSize ? 1 : next); setPageSize(size); } }} />
     </Card>
-    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} />
+    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} initialTab={initialTab} />
   </div>;
 }
 

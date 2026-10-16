@@ -197,6 +197,7 @@ export default class FinancePlugin extends Plugin {
     actions.reportRuns = respond(async ctx => reports.list(ctx.action.params));
     actions.reportRun = respond(async ctx => reports.get(ctx.action.params.id));
     actions.reportTrace = respond(async ctx => reports.trace(ctx.action.params.id));
+    actions.reportCompare = respond(async ctx => reports.compare(ctx.action.params));
     actions.reviewFinding = respond(async ctx => {
       postOnly(ctx);
       const { request_key, ...payload } = ctx.action.params.values || {};

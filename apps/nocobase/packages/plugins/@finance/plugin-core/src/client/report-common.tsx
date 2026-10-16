@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
-import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Segmented, Space, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Segmented, Select, Space, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { TracePanel } from './TracePanel';
 import { TargetButton } from './report-targets';
 import type { ReportTarget } from '../shared/report-center';
@@ -72,6 +72,61 @@ export async function downloadReport(api: any, run: { id: string; client_code: s
   const ext = { snapshot: 'json', workbook: 'xlsx' }[kind] || 'html';
   link.href = url; link.download = `${name}_${run.client_code}_${run.report_month}${kind === 'workbook' && run.status !== 'published' ? '_草稿' : ''}.${ext}`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const REVIEW_TEXT = { confirmed: '已确认', needs_fix: '需修改', not_applicable: '不适用' };
+function ComparePane({ run, canWrite, canConfigure, openTarget }: any) {
+  const api = useAPIClient();
+  const [choices, setChoices] = useState<any[]>([]);
+  const [partner, setPartner] = useState<string>();
+  const [listed, setListed] = useState(false);
+  const [result, setResult] = useState<any>();
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let current = true;
+    setListed(false);
+    api.request({ url: 'finance:reportRuns', params: { entity_id: run.entity_id, report_month: run.report_month, status: 'ready,published,superseded', page_size: 50, order: 'newest' } }).then(response => {
+      if (!current) return;
+      const list = (response.data.data.rows || []).filter((item: any) => item.id !== run.id);
+      setChoices(list);
+      const published = list.find((item: any) => item.status === 'published');
+      const previous = list.find((item: any) => item.created_at < run.created_at) || list[0];
+      setPartner(run.status === 'published' ? previous?.id : published?.id || previous?.id);
+      setListed(true);
+    }).catch(e => { if (current) { setError(e.response?.data?.errors?.[0]?.message || '版本列表读取失败'); setListed(true); } });
+    return () => { current = false; };
+  }, [run.id]);
+  useEffect(() => {
+    if (!partner) { setResult(undefined); return; }
+    let current = true;
+    api.request({ url: 'finance:reportCompare', params: { base_id: partner, head_id: run.id } }).then(response => { if (current) { setResult(response.data.data); setError(''); } }).catch(e => { if (current) setError(e.response?.data?.errors?.[0]?.message || '版本对比失败'); });
+    return () => { current = false; };
+  }, [run.id, partner]);
+  const empty = result && !result.meta_changes?.length && !result.metrics?.length && !result.months?.length && !result.funds?.length && !result.findings?.added?.length && !result.findings?.removed?.length && !result.findings?.level_changed?.length && !result.data?.leaves?.length && !result.data?.results?.length;
+  return <>
+    <Space style={{ marginBottom: 12 }} wrap>
+      <Text type="secondary">对比基准</Text>
+      <Select style={{ minWidth: 280 }} value={partner} placeholder={choices.length ? '选择另一版本' : '没有其他版本'} options={choices.map(item => ({ value: item.id, label: `${item.report_month} · ${item.status === 'published' ? '已发布' : item.status === 'ready' ? '待复核' : '已被替代'} · ${new Date(item.created_at).toLocaleString('zh-CN')}` }))} onChange={setPartner} />
+    </Space>
+    {error && <Alert type="error" showIcon message={error} />}
+    {listed && !partner && !error && <Empty description="没有可对比的其他版本" />}
+    {result?.same_snapshot && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="数据快照相同，差异来自计算版本、口径、候选值或基准选择" />}
+    {result?.data?.source === 'snapshot' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="一方生成于追溯上线前，以下为数据快照中的记录变化，未必都影响月报" />}
+    {empty && <Empty description="两版没有差异" />}
+    {result && !empty && <>
+      <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="计算版本与口径" items={[
+        { key: 'engine', label: '计算版本', children: `${result.base.engine_version} → ${result.head.engine_version}` },
+        { key: 'rules', label: '计算口径', children: `${result.base.rules ? result.base.rules.text : '未记录（追溯上线前生成）'} → ${result.head.rules ? result.head.rules.text : '未记录（追溯上线前生成）'}` },
+      ]} />
+      {!!result.metrics?.length && <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="关键指标" items={result.metrics.map((item: any) => ({ key: item.key, label: item.key, children: `${item.base ?? '—'} → ${item.head ?? '—'}` }))} />}
+      {!!result.funds?.length && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="各基金按简称对照；同一基金改名会显示为删除一行并新增一行，可能为改名" />}
+      {!!result.findings?.level_changed?.length && <Text>校验发现有 {result.findings.level_changed.length} 项级别变化，新增 {result.findings.added.length}，减少 {result.findings.removed.length}。</Text>}
+      {Object.entries(result.findings?.base_reviews || {}).map(([fingerprint, review]: any) => <Text key={fingerprint} type="secondary">上一版：{REVIEW_TEXT[review.status] || review.status} · {review.by_name || '复核人'}</Text>)}
+      {!!result.data?.leaves?.length && <div style={{ marginTop: 12 }}><Text strong>原始数据与结果变化</Text>
+        {result.data.leaves.slice(0, 30).map((row: any) => <div key={row.id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}><Text>{row.label}</Text><Tag>{row.change}</Tag><TargetButton target={row.target} label="打开记录" canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} /></div>)}
+      </div>}
+    </>}
+  </>;
 }
 
 export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget, canConfigure, initialTab }: any) {
@@ -197,6 +252,7 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget
         { key: 'note', label: '复核说明', children: run.review_note || '—' },
       ]} /> },
       { key: 'checks-html', label: '校验报告原文', children: frame(html.checks) },
+      { key: 'compare', label: '版本对比', children: <ComparePane run={run} canWrite={canWrite} canConfigure={canConfigure} openTarget={jump} /> },
     ]} />}
     <Modal open={confirming} title="复核并发布月报" okText="确认发布" confirmLoading={busy} onOk={publish} onCancel={() => setConfirming(false)} okButtonProps={{ disabled: !canWrite || (run?.review_gate?.blockers || []).some((item: any) => item.code !== 'REVIEW_NOTE_REQUIRED') || (!!counts?.错误 && !note.trim()) }}>
       <p>发布后客户可见版本固定为本次生成的内容。同一主体同一月份此前发布的月报会标记为“已被替代”。</p>
