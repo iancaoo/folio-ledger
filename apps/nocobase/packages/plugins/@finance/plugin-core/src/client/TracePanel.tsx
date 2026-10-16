@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
-import { traceFormulaText, traceSourceText } from '../shared/trace-source';
+import { traceFormulaText, traceLeafTarget, traceSourceText } from '../shared/trace-source';
+import { TargetButton } from './report-targets';
 
 const { Text } = Typography;
 const levelType = { 错误: 'error', 警告: 'warning', 提示: 'info' } as const;
@@ -33,8 +34,10 @@ function Flags({ flags }: { flags?: string[] }) {
   return <>{flags?.map(f => <Tag key={f} bordered={false} color={flagColor(f)} style={{ marginInlineStart: 4, marginInlineEnd: 0 }}>{f}</Tag>)}</>;
 }
 
-function TraceNode({ trace, id, role, depth, findings }: { trace: any; id: string; role?: string; depth: number; findings: Record<string, any[]> }) {
+function TraceNode({ trace, id, role, depth, findings, entityId, canWrite, canConfigure, openTarget }: { trace: any; id: string; role?: string; depth: number; findings: Record<string, any[]>; entityId?: string; canWrite: boolean; canConfigure?: boolean; openTarget?: (target: any) => void }) {
   const n = trace.nodes[id];
+  if (!n) return null;
+  const leaf = n.op === 'leaf' ? traceLeafTarget(n.src, entityId || '', trace.record_refs) : null;
   const [open, setOpen] = useState(depth < 1);
   const kids: Array<[string, string]> = (n.inputs || []).map(([r, i]: [string, string], idx: number) => [n.params?.coeffs?.[idx] < 0 ? `${r}（−）` : r, i]);
   const children: Array<[string, string]> = [...kids, ...(n.refs || []).map((r: string) => ['分类依据', r] as [string, string])];
@@ -44,17 +47,17 @@ function TraceNode({ trace, id, role, depth, findings }: { trace: any; id: strin
       <div style={{ flex: 1, minWidth: 0 }}>
         {role && <Text type="secondary">{role}：</Text>}<Text strong>{n.label}</Text><Flags flags={n.flags} />
         <div style={{ fontSize: 12, color: 'rgba(0,0,0,.55)' }}>{formula(trace, n)}</div>
-        {n.src && <div style={{ fontSize: 12, color: '#389e0d' }}>{traceSourceText(n.src)}</div>}
+        {n.src && <div style={{ fontSize: 12, color: '#389e0d' }}>{traceSourceText(n.src)}{leaf && <TargetButton target={leaf} label="打开记录" canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />}</div>}
         {findings[id]?.map((f, i) => <Alert key={i} type={levelType[f.level] || 'info'} showIcon style={{ margin: '4px 0', padding: '2px 8px', fontSize: 12 }} message={f.title} description={f.detail} />)}
       </div>
       <Text className="finance-num" style={{ whiteSpace: 'nowrap' }}>{formatValue(n)}</Text>
     </div>
-    {open && children.map(([r, c], i) => <TraceNode key={`${c}-${i}`} trace={trace} id={c} role={r} depth={depth + 1} findings={findings} />)}
+    {open && children.map(([r, c], i) => <TraceNode key={`${c}-${i}`} trace={trace} id={c} role={r} depth={depth + 1} findings={findings} entityId={entityId} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />)}
   </div>;
 }
 
 /** Calculation tree of one report number, down to the Finance records it was computed from. */
-export function TracePanel({ trace, ids, onClose }: { trace: any; ids: string[]; onClose: () => void }) {
+export function TracePanel({ trace, ids, onClose, entityId, canWrite = false, canConfigure, openTarget }: { trace: any; ids: string[]; onClose: () => void; entityId?: string; canWrite?: boolean; canConfigure?: boolean; openTarget?: (target: any) => void }) {
   const findings = useMemo(() => {
     const by: Record<string, any[]> = {};
     for (const f of trace.findings || []) if (f.node) (by[f.node] = by[f.node] || []).push(f);
@@ -68,10 +71,11 @@ export function TracePanel({ trace, ids, onClose }: { trace: any; ids: string[];
     title={<Space direction="vertical" size={0}><Text strong>{root.label}</Text><Text type="secondary" style={{ fontSize: 12 }}>口径 {trace.meta.rules.id}：{trace.meta.rules.range_value_text}</Text></Space>}
     extra={<Button type="text" icon={<CloseOutlined />} aria-label="关闭追溯" onClick={onClose} />}>
     <Text type="secondary" style={{ fontSize: 12 }}>计算过程</Text>
-    {ids.map(id => <TraceNode key={id} trace={trace} id={id} depth={0} findings={findings} />)}
+    {ids.map(id => <TraceNode key={id} trace={trace} id={id} depth={0} findings={findings} entityId={entityId} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />)}
     <div style={{ marginTop: 16 }}><Text type="secondary" style={{ fontSize: 12 }}>用到的原始数据：{leaves.length} 项{flagged ? `，其中 ${flagged} 项带标记` : ''}</Text></div>
-    {leaves.map(i => { const n = trace.nodes[i]; return <div key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 12 }}>
+    {leaves.map(i => { const n = trace.nodes[i]; const leaf = traceLeafTarget(n.src, entityId || '', trace.record_refs); return <div key={i} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 12 }}>
       <div style={{ flex: 1 }}>{n.label}<Flags flags={n.flags} /><div style={{ color: 'rgba(0,0,0,.45)' }}>{traceSourceText(n.src) || '无来源定位'}</div></div>
+      {leaf && <TargetButton target={leaf} label="打开记录" canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />}
       <span className="finance-num" style={{ whiteSpace: 'nowrap' }}>{formatValue(n)}</span>
     </div>; })}
   </Card>;

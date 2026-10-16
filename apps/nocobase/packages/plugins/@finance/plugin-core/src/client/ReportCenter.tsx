@@ -5,6 +5,7 @@ import { AuditOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FileAddO
 import { PageIntro, StatCard, TwoLine } from './ui';
 import { RemoteSelect } from './RemoteSelect';
 import { Counts, ReportDrawer, ReportStatus, downloadReport, errorText, money, pct, useReportPost } from './report-common';
+import { TargetButton } from './report-targets';
 import type { BoardStage, ReadinessItem, ReportTarget } from '../shared/report-center';
 
 const { Text, Paragraph } = Typography;
@@ -24,16 +25,6 @@ function targetLabel(code: string, kind: ReportTarget['kind']) {
   if (code === 'TAG_MISSING') return '补充标签';
   if (code === 'TAG_NOT_ALLOWED') return '修改标签';
   return { nav: '补录净值', return: '录入收益率', fund: '修改标签', benchmark: '录入基准点位', trades: '去录入申赎', positions: '查看持仓', entity: '查看主体', options: '维护候选值' }[kind];
-}
-
-export function TargetButton({ item, canWrite, canConfigure, openTarget }: { item: ReadinessItem; canWrite: boolean; canConfigure?: boolean; openTarget?: (target: ReportTarget) => void }) {
-  const target = item.target;
-  if (!target || !openTarget) return null;
-  const configure = target.kind === 'options';
-  const needsWrite = target.kind === 'return' || target.kind === 'fund' || target.kind === 'benchmark' || target.kind === 'nav' || target.kind === 'trades';
-  const enabled = configure ? !!canConfigure : needsWrite ? canWrite : true;
-  const button = <Button type="link" size="small" disabled={!enabled} onClick={() => openTarget(target)}>{targetLabel(item.code, target.kind)}</Button>;
-  return enabled ? button : <Tooltip title={configure ? '仅候选配置管理员可修改' : '当前角色只读'}><span>{button}</span></Tooltip>;
 }
 
 function ReadinessMarks({ readiness }: { readiness?: any }) {
@@ -110,7 +101,7 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
         <Text type="secondary">{group.category}</Text>
         {group.items.map((item: ReadinessItem, index: number) => <div key={`${item.code}-${item.fund || ''}-${item.month || ''}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
           <div style={{ flex: 1 }}><Space wrap><Tag bordered={false} color={item.level === '错误' ? 'error' : item.level === '警告' ? 'warning' : 'processing'}>{item.level}</Tag><Text strong>{item.title}</Text></Space><div><Text type="secondary">{item.detail}</Text></div></div>
-          <TargetButton item={item} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />
+          <TargetButton target={item.target} label={targetLabel(item.code, item.target.kind)} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />
         </div>)}
       </div>)}
       </>}
@@ -224,7 +215,7 @@ export function ReportBoard({ active, canWrite, canConfigure, month, setMonth, r
       <Table className="finance-table" rowKey="entity_id" size="middle" loading={loading} dataSource={result?.rows || []} columns={columns} scroll={{ x: 1200 }} locale={{ emptyText: empty }}
         pagination={{ current: page, pageSize, total: result?.count || 0, showSizeChanger: true, onChange: (next, size) => { setPage(size !== pageSize ? 1 : next); setPageSize(size); } }} />
     </Card>
-    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
+    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} />
     <ReadinessDrawer open={!!check} close={() => setCheck(undefined)} entityId={check} month={month} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh} openTarget={openTarget} onGenerated={bump} />
   </div>;
 }
@@ -243,7 +234,7 @@ function useRunList(active: boolean, query: any, tick: number, refresh: number) 
   return { result, loading, error };
 }
 
-export function ReviewQueue({ active, canWrite, refresh }: { active: boolean; canWrite: boolean; refresh: number }) {
+export function ReviewQueue({ active, canWrite, refresh, openTarget, canConfigure }: { active: boolean; canWrite: boolean; refresh: number; openTarget?: (target: ReportTarget) => void; canConfigure?: boolean }) {
   const { post, busy, tick, bump } = useReportPost();
   const [search, setSearch] = useState(''); const [month, setMonth] = useState(''); const [latest, setLatest] = useState(true); const [order, setOrder] = useState('errors');
   const [page, setPage] = useState(1); const [pageSize, setPageSize] = useState(20); const [openId, setOpenId] = useState<string>();
@@ -273,11 +264,11 @@ export function ReviewQueue({ active, canWrite, refresh }: { active: boolean; ca
       <Table className="finance-table" rowKey="id" size="middle" loading={loading} dataSource={result.rows} columns={columns} scroll={{ x: 1000 }} locale={{ emptyText: error ? '读取失败' : '没有待复核的月报' }}
         pagination={{ current: page, pageSize, total: result.count, showSizeChanger: true, onChange: (next, size) => { setPage(size !== pageSize ? 1 : next); setPageSize(size); } }} />
     </Card>
-    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
+    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} />
   </div>;
 }
 
-export function ReportArchive({ active, canWrite = false, refresh }: { active: boolean; canWrite?: boolean; refresh: number }) {
+export function ReportArchive({ active, canWrite = false, refresh, openTarget, canConfigure }: { active: boolean; canWrite?: boolean; refresh: number; openTarget?: (target: ReportTarget) => void; canConfigure?: boolean }) {
   const api = useAPIClient();
   const { post, busy, tick, bump } = useReportPost();
   const [search, setSearch] = useState(''); const [entityId, setEntityId] = useState<string>(); const [clientCode, setClientCode] = useState('');
@@ -323,6 +314,6 @@ export function ReportArchive({ active, canWrite = false, refresh }: { active: b
       <Table className="finance-table" rowKey="id" size="middle" loading={loading} dataSource={result.rows} columns={columns} scroll={{ x: 1500 }} locale={{ emptyText: error ? '读取失败' : filtered ? '没有符合条件的月报' : '还没有已发布的月报' }}
         pagination={{ current: page, pageSize, total: result.count, showSizeChanger: true, onChange: (next, size) => { setPage(size !== pageSize ? 1 : next); setPageSize(size); } }} />
     </Card>
-    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
+    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} />
   </div>;
 }

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAPIClient } from '@nocobase/client';
 import { Alert, Button, Descriptions, Drawer, Empty, Input, Modal, Space, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { TracePanel } from './TracePanel';
+import { TargetButton } from './report-targets';
+import type { ReportTarget } from '../shared/report-center';
 
 const { Text, Paragraph } = Typography;
 const statusLabels = { queued: ['排队中', 'processing'], running: ['计算中', 'processing'], ready: ['待复核', 'warning'], failed: ['生成失败', 'error'], published: ['已发布', 'success'], superseded: ['已被替代', 'default'] };
@@ -45,13 +47,19 @@ export async function downloadReport(api: any, run: { id: string; client_code: s
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
+export function ReportDrawer({ id, close, canWrite, post, busy, tick, openTarget, canConfigure, initialTab }: any) {
   const api = useAPIClient();
   const [run, setRun] = useState<any>(); const [html, setHtml] = useState<Record<string, string>>({}); const [error, setError] = useState('');
   const [note, setNote] = useState(''); const [confirming, setConfirming] = useState(false);
   const [trace, setTrace] = useState<any>(); const [traceNote, setTraceNote] = useState(''); const [picked, setPicked] = useState<string[]>();
+  const [tab, setTab] = useState('report');
+  const jump = (target: ReportTarget) => {
+    if (!openTarget) return;
+    if (['nav', 'trades', 'positions', 'options'].includes(target.kind)) close();
+    openTarget(target);
+  };
   useEffect(() => {
-    if (!id) { setRun(undefined); setHtml({}); setTrace(undefined); setTraceNote(''); setPicked(undefined); return; }
+    if (!id) { setRun(undefined); setHtml({}); setTrace(undefined); setTraceNote(''); setPicked(undefined); setTab('report'); return; }
     let current = true;
     api.request({ url: 'finance:reportRun', params: { id } }).then(async response => {
       if (!current) return;
@@ -66,6 +74,7 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
     }).catch(e => { if (current) setError(e.response?.data?.errors?.[0]?.message || '月报读取失败'); });
     return () => { current = false; };
   }, [id, tick]);
+  useEffect(() => { if (id) setTab(initialTab || 'report'); }, [id, initialTab]);
   // The preview runs no scripts; the drawer reads its cells (same-origin, script-free sandbox) to open the trace.
   const linkCells = (frameEl: HTMLIFrameElement | null) => {
     const doc = frameEl?.contentDocument;
@@ -100,7 +109,7 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
   }
   const counts = run?.summary?.counts; const ready = run && ['ready', 'published', 'superseded'].includes(run.status);
   const frame = (doc?: string) => doc ? <iframe title="月报预览" sandbox="" srcDoc={doc} style={{ width: '100%', height: '72vh', border: '1px solid var(--finance-border)', borderRadius: 6, background: '#eef1f5' }} /> : <Empty description="月报尚未生成" />;
-  return <Drawer open={!!id} onClose={close} width="min(1320px, 96vw)" destroyOnClose title={run ? <Space>{run.common_name || run.legal_name}<Text type="secondary">{run.report_month}</Text><ReportStatus value={run.status} /></Space> : '月报'}
+  return <Drawer zIndex={999} open={!!id} onClose={close} width="min(1320px, 96vw)" destroyOnClose title={run ? <Space>{run.common_name || run.legal_name}<Text type="secondary">{run.report_month}</Text><ReportStatus value={run.status} /></Space> : '月报'}
     extra={ready && <Space>
       <Button onClick={() => download('report')}>下载月报</Button><Button onClick={() => download('checks')}>下载校验报告</Button>
       <Tooltip title={run.summary?.trace ? 'Excel：每一步计算都是公式，并列出系统值与差异，供逐项复核' : '该月报生成于计算追溯上线之前，重新生成后可下载'}>
@@ -110,7 +119,7 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
     </Space>}>
     {error && <Alert type="error" showIcon message={error} />}
     {run && !ready && <Alert type={run.status === 'failed' ? 'error' : 'info'} showIcon message={run.status === 'failed' ? `生成失败：${run.error}` : '正在读取数据快照并计算，完成后自动刷新'} />}
-    {ready && <Tabs items={[
+    {ready && <Tabs activeKey={tab} onChange={setTab} items={[
       { key: 'report', label: '月报预览', children: <>
         {run.status !== 'published' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="未发布的月报带“草稿”水印；复核后发布即可去除" />}
         {trace ? <Alert style={{ marginBottom: 12 }} type="info" showIcon message="点击月报中的任意数字，右侧展开它的计算过程和原始数据；右上角带红角的数字挂有校验提示" />
@@ -119,13 +128,20 @@ export function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
           <div style={{ flex: 1, minWidth: 0 }}>{html.report
             ? <iframe ref={previewRef} title="月报预览" sandbox="allow-same-origin" srcDoc={html.report} onLoad={event => linkCells(event.currentTarget)} style={{ width: '100%', height: '72vh', border: '1px solid var(--finance-border)', borderRadius: 6, background: '#eef1f5' }} />
             : <Empty description="月报尚未生成" />}</div>
-          {trace && picked && <div style={{ width: 460, flex: 'none' }}><TracePanel trace={trace} ids={picked} onClose={() => setPicked(undefined)} /></div>}
+          {trace && picked && <div style={{ width: 460, flex: 'none' }}><TracePanel trace={trace} ids={picked} onClose={() => setPicked(undefined)} entityId={run.entity_id} canWrite={canWrite} canConfigure={canConfigure} openTarget={jump} /></div>}
         </div>
       </> },
       { key: 'checks', label: <Space size={4}>校验结果<Counts counts={counts} /></Space>, children: <>
         {!run.findings?.length && <Alert type="success" showIcon message="全部检查项通过" />}
-        {run.findings?.map((f, i) => <Alert key={i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
-          message={<Space wrap><Tag bordered={false}>{f.category}</Tag><Text strong>{f.title}</Text></Space>} description={<><Paragraph style={{ marginBottom: 4 }}>{f.detail}</Paragraph>{f.suggestion && <Text type="success">建议：{f.suggestion}</Text>}</>} />)}
+        {run.findings?.map((f, i) => {
+          const node = trace?.findings?.[i]?.node;
+          return <Alert key={i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
+            message={<Space wrap><Tag bordered={false}>{f.category}</Tag><Text strong>{f.title}</Text></Space>}
+            description={<><Paragraph style={{ marginBottom: 4 }}>{f.detail}</Paragraph>{f.suggestion && <Text type="success">建议：{f.suggestion}</Text>}
+              <div>{Array.isArray(f.targets) && f.targets.map((item: { label: string; target: ReportTarget }, index: number) => <TargetButton key={index} target={item.target} label={item.label} canWrite={canWrite} canConfigure={canConfigure} openTarget={jump} />)}
+                {node && <Button type="link" size="small" onClick={() => { setTab('report'); setPicked([node]); }}>查看计算过程</Button>}
+                {!Array.isArray(f.targets) && !node && <Text type="secondary">该月报生成于跳转功能上线之前，重新生成后可直接跳到记录</Text>}</div></>} />;
+        })}
       </> },
       { key: 'trace', label: '数据追溯', children: <Descriptions column={1} bordered size="small" items={[
         { key: 'client', label: '客户编号 / 主体', children: `${run.client_code} / ${run.legal_name}` },

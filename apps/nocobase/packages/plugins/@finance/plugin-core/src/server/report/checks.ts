@@ -4,10 +4,11 @@ import { Dataset, Month, Return, fundKeys, money, monthEnd, monthLabel, pct, sig
 export const THRESHOLDS = { reconWarn: 0.003, reconFitTol: 0.005, reconError: 0.01, bigMove: 0.15 };
 export const LEVELS = ['错误', '警告', '提示'] as const;
 export type Level = typeof LEVELS[number];
-export type Finding = { level: Level; category: string; title: string; detail: string; suggestion: string; fund: string; month: string };
+export type FindingLoc = { month?: string; date?: string; field?: string; benchmark?: string; funds?: string[]; source_key?: string };
+export type Finding = { level: Level; category: string; title: string; detail: string; suggestion: string; fund: string; month: string; code?: string; loc?: FindingLoc };
 export type Allowed = { risk: Record<string, string[]>; region: Record<string, string[]>; strategy: Record<string, string[]> };
 
-const finding = (level: Level, category: string, title: string, detail: string, suggestion = '', fund = '', month = ''): Finding => ({ level, category, title, detail, suggestion, fund, month });
+const finding = (level: Level, category: string, title: string, detail: string, suggestion = '', fund = '', month = '', meta?: { code: string; loc?: FindingLoc }): Finding => ({ level, category, title, detail, suggestion, fund, month, ...(meta || {}) });
 const previousMonth = (res: Result, m: Month) => { const i = res.months.indexOf(m); return i > 0 ? res.months[i - 1] : undefined; };
 
 /** Least squares: client implied return = alpha + beta × published return. */
@@ -56,7 +57,7 @@ export function checkReconciliation(ds: Dataset, res: Result): Finding[] {
       const ex = rows.filter(x => sys.months.includes(x.m)).reduce((a, b) => Math.abs(b.r.value!) > Math.abs(a.r.value!) ? b : a);
       out.push(finding('提示', '净值勾稽', `${k}：客户实际收益与基金公布收益存在稳定差异`,
         `${sys.months.length} 个月的数据显示，客户持仓净值的月度变动 ≈ ${beta.toFixed(2)} × 基金公布收益${signed(alpha * 100)} 个百分点。例如 ${monthLabel(ex.m)} 基金公布 ${pct(ex.r.value)}，客户实际 ${pct(ex.implied)}。因此报告 Table-1 的单基金收益与客户实际收益口径不同。`,
-        '常见原因是客户持有的份额类别与公布业绩的份额类别不同，或业绩报酬的计提方式不同；建议向基金或行政管理人确认，并决定 Table-1 用哪个口径。', k));
+        '常见原因是客户持有的份额类别与公布业绩的份额类别不同，或业绩报酬的计提方式不同；建议向基金或行政管理人确认，并决定 Table-1 用哪个口径。', k, '', { code: 'RECON_SYSTEMATIC' }));
     }
     for (const { m, r, nav, prev, flow, implied } of rows) {
       const expected = alpha + beta * r.used;
@@ -69,7 +70,7 @@ export function checkReconciliation(ds: Dataset, res: Result): Finding[] {
       const basis = sys ? `按上述稳定关系应为 ${pct(expected)}，` : '';
       out.push(finding(Math.abs(diff) >= THRESHOLDS.reconError ? '错误' : '警告', '净值勾稽', `${k} ${monthLabel(m)}：净值与收益率、资金流不一致`,
         `对账单净值 ${money(nav)}，上月净值 ${money(prev)}，本月申赎 ${money(flow)}，反推当月收益 ${pct(implied)}；录入的基金收益率为 ${shown}，${basis}相差 ${signed(diff * 100)} 个百分点。若收益率无误，本月申赎应约为 ${money(nav / (1 + expected) - prev)}。`,
-        prev === 0 ? '首次申购当月，差异常见于申购费、均衡化调整或申购日不在月初，确认后可忽略。' : '核对对账单、申赎记录和收益率三者中哪一项录错。', k, monthLabel(m)));
+        prev === 0 ? '首次申购当月，差异常见于申购费、均衡化调整或申购日不在月初，确认后可忽略。' : '核对对账单、申赎记录和收益率三者中哪一项录错。', k, monthLabel(m), { code: 'RECON_MISMATCH', loc: { month: m } }));
     }
   }
   return out;
@@ -83,7 +84,7 @@ export function checkEstimates(ds: Dataset, res: Result): Finding[] {
     const stale = m < ds.asOf;
     out.push(finding(stale ? '错误' : '提示', '估算数据', `${monthLabel(m)}有 ${estimated.length} 只基金仍为估算值`,
       `${estimated.join('、')}。报告中这些单元格会标红，相关净值为推算值。`,
-      stale ? '截止日之前月份的估算值应在出报告前替换为实际值。' : '实际值录入 Finance 后重新生成月报即可。', '', monthLabel(m)));
+      stale ? '截止日之前月份的估算值应在出报告前替换为实际值。' : '实际值录入 Finance 后重新生成月报即可。', '', monthLabel(m), { code: 'ESTIMATE_MONTH', loc: { month: m, funds: estimated } }));
     for (const k of estimated) {
       const r = ds.returns[k][m];
       if (!r.isRange || r.point === null || Math.abs(r.point - r.midpoint!) <= 1e-9) continue;
@@ -93,7 +94,7 @@ export function checkEstimates(ds: Dataset, res: Result): Finding[] {
       const denominator = (pm ? res.totalNav[pm] : 0) + res.totalFlow[m];
       out.push(finding('提示', '估算数据', `${k} ${monthLabel(m)}：估算点值不在区间中点`,
         `区间 ${r.describe()}，中点 ${pct(r.midpoint)}，实际用于推算的点值为 ${pct(r.point)}，净值相差约 ${money(delta)}，影响组合当月收益约 ${signed(denominator ? delta / denominator * 100 : 0)} 个百分点。`,
-        '确认点值来源（基金经理口头估计或内部判断）并在备注中写明。', k, monthLabel(m)));
+        '确认点值来源（基金经理口头估计或内部判断）并在备注中写明。', k, monthLabel(m), { code: 'ESTIMATE_POINT', loc: { month: m } }));
     }
   }
   for (const k of keys) {
@@ -102,7 +103,7 @@ export function checkEstimates(ds: Dataset, res: Result): Finding[] {
     if (!actual.length) continue;
     const latest = actual[actual.length - 1];
     for (const [m, r] of Object.entries(rs)) if (r.estimate && m < latest) {
-      out.push(finding('错误', '估算数据', `${k} ${monthLabel(m)}：过期的估算值`, `已有 ${monthLabel(latest)} 的实际值，但 ${monthLabel(m)} 仍是估算值。`, '补录该月实际值。', k, monthLabel(m)));
+      out.push(finding('错误', '估算数据', `${k} ${monthLabel(m)}：过期的估算值`, `已有 ${monthLabel(latest)} 的实际值，但 ${monthLabel(m)} 仍是估算值。`, '补录该月实际值。', k, monthLabel(m), { code: 'ESTIMATE_STALE', loc: { month: m } }));
     }
   }
   return out;
@@ -113,10 +114,10 @@ export function checkSelection(ds: Dataset): Finding[] {
   const out: Finding[] = [];
   for (const k of fundKeys(ds)) for (const [m, cs] of Object.entries(ds.returnSelections?.[k] || {}).sort(([a], [b]) => a < b ? -1 : 1)) {
     for (const c of cs.filter(c => c.kind === '未标注')) out.push(finding('错误', '收益选值', `${k} ${monthLabel(m)}：收益率未标注是否估算`,
-      `${c.date} 的收益率 ${pct(c.value)} 没有标注是正式值还是估算值，未参与计算${cs.some(x => x.used) ? '' : '，该月没有可用的收益率'}。`, '在 Finance 中补填“是否估算”后重新生成。', k, monthLabel(m)));
+      `${c.date} 的收益率 ${pct(c.value)} 没有标注是正式值还是估算值，未参与计算${cs.some(x => x.used) ? '' : '，该月没有可用的收益率'}。`, '在 Finance 中补填“是否估算”后重新生成。', k, monthLabel(m), { code: 'RETURN_UNLABELED', loc: { month: m, date: c.date } }));
     const used = cs.find(c => c.used);
     if (used?.kind === '正式' && used.date !== monthEnd(m)) out.push(finding('提示', '收益选值', `${k} ${monthLabel(m)}：正式收益率日期不在月末`,
-      `采用的是 ${used.date} 的正式值 ${pct(used.value)}，可能只覆盖到月中。`, '确认该值是否为整月 MTD。', k, monthLabel(m)));
+      `采用的是 ${used.date} 的正式值 ${pct(used.value)}，可能只覆盖到月中。`, '确认该值是否为整月 MTD。', k, monthLabel(m), { code: 'RETURN_NOT_MONTH_END', loc: { month: m, date: used.date } }));
   }
   return out;
 }
@@ -144,28 +145,34 @@ export function tagProblems(ds: Dataset, allowed: Allowed): TagProblem[] {
   }
   return out;
 }
+const TAG_DIM = { 风险分类: 'risk', 投资地区: 'region', 基金策略: 'strategy' } as const;
 export function checkTags(ds: Dataset, allowed: Allowed): Finding[] {
-  return tagProblems(ds, allowed).map(p => !p.value
-    ? finding('错误', '基金标签', `${p.key}：缺少${p.label}`, '持仓分类无法计算。', `补充${p.label}。`, p.key)
-    : finding('警告', '基金标签', `${p.key}：${p.label}「${p.value}」不在字段清单的枚举值中`, `允许值：${p.choices.join('/') || '尚未配置'}。`, '补充枚举值或改用已有分类。', p.key));
+  return tagProblems(ds, allowed).map(p => {
+    const ref = ds.refs?.funds[p.key];
+    const source = ref ? TAG_SOURCES[TAG_DIM[p.label]][ref.fund_kind as 'third_party' | 'proprietary'] : undefined;
+    const loc = { field: p.field, ...(p.choices.length === 0 && p.value && source ? { source_key: source } : {}) };
+    return !p.value
+      ? finding('错误', '基金标签', `${p.key}：缺少${p.label}`, '持仓分类无法计算。', `补充${p.label}。`, p.key, '', { code: 'TAG_MISSING', loc })
+      : finding('警告', '基金标签', `${p.key}：${p.label}「${p.value}」不在字段清单的枚举值中`, `允许值：${p.choices.join('/') || '尚未配置'}。`, '补充枚举值或改用已有分类。', p.key, '', { code: 'TAG_NOT_ALLOWED', loc });
+  });
 }
 
 export function checkTotals(res: Result): Finding[] {
   const out: Finding[] = [];
   const total = Object.values(res.weights).reduce((a, b) => a + b, 0);
-  if (Math.abs(total - 1) > 1e-6) out.push(finding('错误', '合计校验', '持仓比例合计不等于 100%', `合计 ${pct(total, 4)}。`));
+  if (Math.abs(total - 1) > 1e-6) out.push(finding('错误', '合计校验', '持仓比例合计不等于 100%', `合计 ${pct(total, 4)}。`, '', '', '', { code: 'TOTAL_WEIGHT' }));
   for (const [dim, groups] of Object.entries(res.alloc)) {
     const sum = groups.reduce((a, [, v]) => a + v, 0);
-    if (Math.abs(sum - 1) > 1e-6) out.push(finding('错误', '合计校验', `${dim}分类合计不等于 100%`, `合计 ${pct(sum, 4)}。`));
+    if (Math.abs(sum - 1) > 1e-6) out.push(finding('错误', '合计校验', `${dim}分类合计不等于 100%`, `合计 ${pct(sum, 4)}。`, '', '', '', { code: 'TOTAL_ALLOC' }));
   }
   return out;
 }
 
 export function checkMissing(ds: Dataset, res: Result): Finding[] {
-  const out = res.missing.map(([k, m]) => finding('错误', '数据缺失', `${k} ${monthLabel(m)}：缺少收益率和净值`, '该基金当月有持仓，但既没有对账单净值也没有收益率，净值暂按上月结转。', '补录数据。', k, monthLabel(m)));
+  const out = res.missing.map(([k, m]) => finding('错误', '数据缺失', `${k} ${monthLabel(m)}：缺少收益率和净值`, '该基金当月有持仓，但既没有对账单净值也没有收益率，净值暂按上月结转。', '补录数据。', k, monthLabel(m), { code: 'DATA_MISSING', loc: { month: m } }));
   for (const b of ds.benchmarks) {
     const lack = res.reportMonths.filter(m => !ds.returns[b]?.[m]);
-    if (lack.length) out.push(finding('警告', '数据缺失', `基准 ${b} 缺少数据`, `缺少：${lack.map(monthLabel).join('、')}`, '补录基准收益。', b));
+    if (lack.length) out.push(finding('警告', '数据缺失', `基准 ${b} 缺少数据`, `缺少：${lack.map(monthLabel).join('、')}`, '补录基准收益。', b, '', { code: 'BENCHMARK_GAP', loc: { month: lack[0], benchmark: b } }));
   }
   return out;
 }
@@ -174,7 +181,7 @@ export function checkBigMoves(ds: Dataset, res: Result): Finding[] {
   const out: Finding[] = [];
   for (const k of fundKeys(ds)) for (const m of res.reportMonths) {
     const r = ds.returns[k]?.[m];
-    if (r && r.value !== null && Math.abs(r.value) >= THRESHOLDS.bigMove) out.push(finding('提示', '大幅波动', `${k} ${monthLabel(m)}：单月收益 ${pct(r.value)}`, `超过 ±${pct(THRESHOLDS.bigMove, 0)}，建议在月报点评中说明原因。`, '核对数值并准备点评。', k, monthLabel(m)));
+    if (r && r.value !== null && Math.abs(r.value) >= THRESHOLDS.bigMove) out.push(finding('提示', '大幅波动', `${k} ${monthLabel(m)}：单月收益 ${pct(r.value)}`, `超过 ±${pct(THRESHOLDS.bigMove, 0)}，建议在月报点评中说明原因。`, '核对数值并准备点评。', k, monthLabel(m), { code: 'BIG_MOVE', loc: { month: m } }));
   }
   return out;
 }
@@ -183,7 +190,7 @@ export function checkProvenance(ds: Dataset): Finding[] {
   const out: Finding[] = [];
   for (const [tag, level, why] of [['模拟', '警告', '这些值目前没有真实来源，是为跑通流程临时编造的，正式出报告前必须替换。'], ['推算', '提示', '这些值由真实数据换算得到，结果正确，但应改为对账单或数据源上的原始值。']] as Array<[string, Level, string]>) {
     const items = ds.provenance.filter(([, , t]) => t === tag).sort(([a, b], [c, d]) => a === c ? (b < d ? -1 : b > d ? 1 : 0) : a < c ? -1 : 1);
-    if (items.length) out.push(finding(level, '数据来源', `本报告用到了${tag}数据（${items.reduce((s, [, , , n]) => s + n, 0)} 个单元格）`, `${items.map(([s, c, , n]) => `${s}.${c} ${n} 个`).join('；')}。`, why));
+    if (items.length) out.push(finding(level, '数据来源', `本报告用到了${tag}数据（${items.reduce((s, [, , , n]) => s + n, 0)} 个单元格）`, `${items.map(([s, c, , n]) => `${s}.${c} ${n} 个`).join('；')}。`, why, '', '', { code: tag === '模拟' ? 'PROVENANCE_DEMO' : 'PROVENANCE_DERIVED' }));
   }
   return out;
 }
@@ -191,7 +198,7 @@ export function checkProvenance(ds: Dataset): Finding[] {
 /** Amounts in different currencies are never added without FX; the report is blocked instead. */
 export function checkCurrency(ds: Dataset): Finding[] {
   if (ds.currencies.length <= 1) return [];
-  return [finding('错误', '币种', `持仓和交易涉及多个币种：${ds.currencies.join('、')}`, '月报按单一币种汇总净值和资金流，目前不做汇率换算，合计、组合收益和 IRR 都不可靠。', '确认报告币种和汇率来源后再出报告；或拆分为单一币种的投资主体。')];
+  return [finding('错误', '币种', `持仓和交易涉及多个币种：${ds.currencies.join('、')}`, '月报按单一币种汇总净值和资金流，目前不做汇率换算，合计、组合收益和 IRR 都不可靠。', '确认报告币种和汇率来源后再出报告；或拆分为单一币种的投资主体。', '', '', { code: 'CURRENCY_MIXED' })];
 }
 
 export function runChecks(ds: Dataset, res: Result, allowed: Allowed) {

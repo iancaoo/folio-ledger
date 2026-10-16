@@ -92,7 +92,7 @@ export function ReportWorkspace({ active, canWrite, entityId, refresh = 0, openT
       <Table className="finance-table" rowKey="id" size="middle" loading={loading} dataSource={result.rows} columns={columns} scroll={{ x: 1300 }} locale={{ emptyText: error ? '读取失败' : '还没有月报，先在上方选择主体和月份生成' }}
         pagination={{ current: query.page, pageSize: query.page_size, total: result.count, showSizeChanger: true, onChange: (page, page_size) => setQuery(old => ({ ...old, page: page_size !== old.page_size ? 1 : page, page_size })) }} />
     </Card>
-    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
+    <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} openTarget={openTarget} canConfigure={canConfigure} />
     <ReadinessDrawer open={checkOpen} close={() => setCheckOpen(false)} entityId={target.entity_id} month={target.report_month} benchmarkIds={target.benchmark_ids} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh} openTarget={openTarget} onGenerated={bump} />
   </div>;
 }

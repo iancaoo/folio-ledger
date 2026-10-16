@@ -11,6 +11,7 @@ import { compute, Orders } from './report/engine';
 import { Allowed, LEVELS, TAG_SOURCES, runChecks } from './report/checks';
 import { renderChecks, renderReport, reportCurrency, withDraftMark, withoutTraceMarks } from './report/render';
 import { fundKeys, monthEnd } from './report/model';
+import { findingTargets } from './report/targets';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
 import { reviewWorkbook } from './report/workbook';
 
@@ -31,6 +32,17 @@ const LIST_ORDER = {
 };
 
 const plain = (row: any) => row?.get ? row.get({ plain: true }) : row;
+function recordRefs(snapshot: any) {
+  const day = (value: any) => String(value || '').slice(0, 10);
+  const share_classes = Object.fromEntries((snapshot?.share_classes || []).filter((row: any) => row?.id).map((row: any) => [row.id, { fund_id: row.fund_id }]));
+  const index = (rows: any[] | undefined, pick: (row: any) => any) => Object.fromEntries((rows || []).filter(row => row?.id).map(row => [row.id, pick(row)]));
+  return {
+    share_classes,
+    fund_navs: index(snapshot?.fund_navs, row => ({ share_class_id: row.share_class_id, fund_id: share_classes[row.share_class_id]?.fund_id, date: day(row.nav_date) })),
+    fund_returns: index(snapshot?.fund_returns, row => ({ share_class_id: row.share_class_id, date: day(row.return_date) })),
+    benchmark_values: index(snapshot?.benchmark_values, row => ({ benchmark_id: row.benchmark_id, date: day(row.value_date) })),
+  };
+}
 function onlyKeys(payload: any, keys: string[]) {
   const extra = Object.keys(payload || {}).find(key => !keys.includes(key));
   if (extra) throw new FinanceError('FIELD_NOT_WRITABLE', '此月报字段不可直接写入', extra);
@@ -103,12 +115,13 @@ export class FinanceReports {
       const { allowed, orders } = await this.tagRules();
       const ds = datasetFromSnapshot(snap, claim.entity_id, claim.month, claim.benchmark_ids);
       const res = compute(ds, orders);
-      const { findings, summary: checks } = runChecks(ds, res, allowed);
+      const { findings: raw, summary: checks } = runChecks(ds, res, allowed);
+      const findings = raw.map(item => ({ ...item, targets: findingTargets(ds, claim.entity_id, item) }));
       const { snapshot_at, ...facts } = snap;
-      const counts = Object.fromEntries(LEVELS.map(level => [level, findings.filter(f => f.level === level).length]));
+      const counts = Object.fromEntries(LEVELS.map(level => [level, raw.filter(f => f.level === level).length]));
       const keys = fundKeys(ds);
       const trace = buildTrace(ds, res);
-      attachFindings(trace, findings);
+      attachFindings(trace, raw);
       // A report whose trace disagrees with the engine, or cannot be recomputed from itself, is not issued.
       const traceErrors = [...checkOutputs(trace, ds, res), ...verifyTrace(trace)];
       if (traceErrors.length) {
@@ -127,7 +140,7 @@ export class FinanceReports {
           benchmarks: ds.benchmarks.map(b => ({ name: b, ytd: res.fundYtd[b] })), alloc: res.alloc,
           trace: { schema: trace.schema, rules: trace.meta.rules, nodes: nodes.length, leaves: nodes.filter(n => n.op === 'leaf').length, verified: true } },
         trace,
-        report_html: renderReport(ds, res, { brand: this.brand, outputs: trace.outputs }), check_html: renderChecks(ds, res, findings, checks), error: null,
+        report_html: renderReport(ds, res, { brand: this.brand, outputs: trace.outputs }), check_html: renderChecks(ds, res, raw, checks), error: null,
       };
     } catch (error: any) {
       if (!(error instanceof FinanceError)) this.service.db.logger?.error?.('Finance report generation failed', { run_id: id, error });
@@ -234,11 +247,11 @@ export class FinanceReports {
     if (download) ctx.attachment(`${kind === 'checks' ? '校验报告' : '投资组合回顾'}_${row.client_code}_${row.report_month}.html`);
   }
   async trace(id: string) {
-    const [row] = await this.sql('SELECT status,trace FROM finance_report_runs WHERE id=:id', { id: uuid(id, 'id') });
+    const [row] = await this.sql('SELECT r.status,r.trace,r.snapshot FROM finance_report_runs r WHERE r.id=:id', { id: uuid(id, 'id') });
     if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
     if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
     if (!row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可追溯', 'id', 404);
-    return row.trace;
+    return { ...row.trace, record_refs: recordRefs(row.snapshot) };
   }
   async publish(payload: any, actor: string, transaction: any) {
     onlyKeys(payload, ['id', 'technical_revision', 'review_note']);
