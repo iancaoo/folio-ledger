@@ -9,8 +9,9 @@ import { pagination } from './queries';
 import { datasetFromSnapshot } from './report/dataset';
 import { compute, Orders } from './report/engine';
 import { Allowed, LEVELS, runChecks } from './report/checks';
-import { renderChecks, renderReport, reportCurrency, withDraftMark } from './report/render';
+import { renderChecks, renderReport, reportCurrency, withDraftMark, withoutTraceMarks } from './report/render';
 import { fundKeys, monthEnd } from './report/model';
+import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
 
 export const REPORT_ENGINE_VERSION = 'finance-report/1';
 const CLAIM_MS = 5 * 60000;
@@ -104,6 +105,15 @@ export class FinanceReports {
       const { snapshot_at, ...facts } = snap;
       const counts = Object.fromEntries(LEVELS.map(level => [level, findings.filter(f => f.level === level).length]));
       const keys = fundKeys(ds);
+      const trace = buildTrace(ds, res);
+      attachFindings(trace, findings);
+      // A report whose trace disagrees with the engine, or cannot be recomputed from itself, is not issued.
+      const traceErrors = [...checkOutputs(trace, ds, res), ...verifyTrace(trace)];
+      if (traceErrors.length) {
+        this.service.db.logger?.error?.('Finance report trace mismatch', { run_id: id, errors: traceErrors.slice(0, 20) });
+        throw new FinanceError('TRACE_MISMATCH', '计算追溯与计算结果不一致，月报未生成；请联系维护者检查日志');
+      }
+      const nodes = Object.values(trace.nodes);
       outcome = {
         status: 'ready', engine_version: REPORT_ENGINE_VERSION, snapshot_at, snapshot: facts,
         snapshot_sha256: createHash('sha256').update(canonical(facts)).digest('hex'), findings,
@@ -112,8 +122,10 @@ export class FinanceReports {
           months: res.reportMonths.map(m => ({ month: m, nav: res.totalNav[m], flow: res.totalFlow[m], return: res.portRet[m] ?? null })),
           funds: keys.map(k => ({ key: k, name: ds.funds[k].nameT1, risk: ds.funds[k].risk, region: ds.funds[k].region, strategy: ds.funds[k].strategy,
             weight: res.weights[k], nav: res.nav[k][ds.asOf]?.value ?? null, nav_source: res.nav[k][ds.asOf]?.source ?? null, invested: res.invested[k], ytd: res.fundYtd[k], first_invest: res.firstInvest[k] ?? null })),
-          benchmarks: ds.benchmarks.map(b => ({ name: b, ytd: res.fundYtd[b] })), alloc: res.alloc },
-        report_html: renderReport(ds, res, { brand: this.brand }), check_html: renderChecks(ds, res, findings, checks), error: null,
+          benchmarks: ds.benchmarks.map(b => ({ name: b, ytd: res.fundYtd[b] })), alloc: res.alloc,
+          trace: { schema: trace.schema, rules: trace.meta.rules, nodes: nodes.length, leaves: nodes.filter(n => n.op === 'leaf').length, verified: true } },
+        trace,
+        report_html: renderReport(ds, res, { brand: this.brand, outputs: trace.outputs }), check_html: renderChecks(ds, res, findings, checks), error: null,
       };
     } catch (error: any) {
       if (!(error instanceof FinanceError)) this.service.db.logger?.error?.('Finance report generation failed', { run_id: id, error });
@@ -184,11 +196,20 @@ export class FinanceReports {
       ctx.attachment(`月报数据快照_${row.client_code}_${row.report_month}.json`);
       return;
     }
-    const html = kind === 'checks' ? row.check_html : row.status === 'published' ? row.report_html : withDraftMark(row.report_html);
+    const download = input.download === '1' || input.download === true;
+    const report = download ? withoutTraceMarks(row.report_html) : row.report_html;
+    const html = kind === 'checks' ? row.check_html : row.status === 'published' ? report : withDraftMark(report);
     ctx.body = html; ctx.type = 'text/html; charset=utf-8';
     // Stored documents contain escaped business text only; still never let them run code or load resources.
     ctx.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
-    if (input.download === '1' || input.download === true) ctx.attachment(`${kind === 'checks' ? '校验报告' : '投资组合回顾'}_${row.client_code}_${row.report_month}.html`);
+    if (download) ctx.attachment(`${kind === 'checks' ? '校验报告' : '投资组合回顾'}_${row.client_code}_${row.report_month}.html`);
+  }
+  async trace(id: string) {
+    const [row] = await this.sql('SELECT status,trace FROM finance_report_runs WHERE id=:id', { id: uuid(id, 'id') });
+    if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
+    if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
+    if (!row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可追溯', 'id', 404);
+    return row.trace;
   }
   async publish(payload: any, actor: string, transaction: any) {
     onlyKeys(payload, ['id', 'technical_revision', 'review_note']);

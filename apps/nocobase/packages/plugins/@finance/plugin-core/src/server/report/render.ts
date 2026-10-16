@@ -72,9 +72,18 @@ function nameCell(name: string) {
   }
   return escape(name);
 }
+type Outputs = Record<string, any>;
+/** Trace node ids behind a cell, as a JSON array (fund keys contain spaces); empty without a trace. */
+function at(o: Outputs, ...path: string[]) {
+  let v: any = o;
+  for (const p of path) { if (!v || typeof v !== 'object' || Array.isArray(v) || !(p in v)) return ''; v = v[p]; }
+  return ` data-n="${escape(JSON.stringify(Array.isArray(v) ? v : [v]))}"`;
+}
+/** Customer downloads carry no trace markers. */
+export const withoutTraceMarks = (html: string) => html.replace(/ data-n="[^"]*"/g, '');
 export const reportCurrency = (ds: Dataset) => ds.currencies.length === 1 ? CURRENCY_NAMES[ds.currencies[0]] || ds.currencies[0] : '多币种，未换算';
 
-function table1(ds: Dataset, res: Result) {
+function table1(ds: Dataset, res: Result, o: Outputs) {
   const ms = res.reportMonths;
   const head = ms.map(m => `<th>${shortDate(monthEnd(m))}</th>`).join('');
   const rows: string[] = [];
@@ -83,48 +92,48 @@ function table1(ds: Dataset, res: Result) {
     const cells = ms.map(m => {
       const r = ds.returns[k]?.[m];
       const cls = ['v', ...(r?.estimate ? ['est'] : []), ...(first && m < first.slice(0, 7) ? ['pre'] : [])];
-      return `<td class="${cls.join(' ')}">${r ? retText(r) : ''}</td>`;
+      return `<td class="${cls.join(' ')}"${at(o, 'ret_cell', k, m)}>${r ? retText(r) : ''}</td>`;
     });
     const y = res.fundYtd[k];
-    cells.push(`<td class="ytd${y.estimate ? ' est' : ''}">${ytdText(y)}</td>`);
+    cells.push(`<td class="ytd${y.estimate ? ' est' : ''}"${at(o, 'fund_ytd', k)}>${ytdText(y)}</td>`);
     rows.push(`<tr class="fund"><td class="l name">${nameCell(ds.funds[k].nameT1)}</td>${cells.join('')}</tr>`);
   }
   for (const b of ds.benchmarks) {
-    const cells = ms.map(m => `<td>${ds.returns[b]?.[m] ? retText(ds.returns[b][m]) : ''}</td>`).join('');
-    rows.push(`<tr class="bench"><td class="l">${escape(b)}</td>${cells}<td class="ytd">${ytdText(res.fundYtd[b])}</td></tr>`);
+    const cells = ms.map(m => `<td${at(o, 'bench_ret', b, m)}>${ds.returns[b]?.[m] ? retText(ds.returns[b][m]) : ''}</td>`).join('');
+    rows.push(`<tr class="bench"><td class="l">${escape(b)}</td>${cells}<td class="ytd"${at(o, 'fund_ytd', b)}>${ytdText(res.fundYtd[b])}</td></tr>`);
   }
   return `<table><thead><tr><th class="l">Table-1: 基金表现</th>${head}<th>YTD ${monthParts(ds.asOf)[0]}</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
-function table3(ds: Dataset, res: Result) {
+function table3(ds: Dataset, res: Result, o: Outputs) {
   const ms = res.reportMonths; const keys = fundKeys(ds);
   const head = ms.map(m => `<th>${shortDate(monthEnd(m))}</th>`).join('');
   const rows = keys.map(k => {
-    const cells = ms.map(m => { const n = res.nav[k][m]; return `<td class="${n && n.source !== '对账单' ? 'calc' : ''}">${n ? money(n.value) : ''}</td>`; }).join('');
-    return `<tr><td class="l">${escape(ds.funds[k].nameT3)}</td><td class="c">${escape(ds.funds[k].risk)}</td><td class="pct c">${pct(res.weights[k], 0)}</td>${cells}<td></td><td>${money(res.invested[k])}</td></tr>`;
+    const cells = ms.map(m => { const n = res.nav[k][m]; return `<td class="${n && n.source !== '对账单' ? 'calc' : ''}"${at(o, 'nav', k, m)}>${n ? money(n.value) : ''}</td>`; }).join('');
+    return `<tr><td class="l">${escape(ds.funds[k].nameT3)}</td><td class="c">${escape(ds.funds[k].risk)}</td><td class="pct c"${at(o, 'weight', k)}>${pct(res.weights[k], 0)}</td>${cells}<td></td><td${at(o, 'invested', k)}>${money(res.invested[k])}</td></tr>`;
   });
   const invested = keys.reduce((s, k) => s + res.invested[k], 0);
-  rows.push(`<tr class="total"><td class="l">总计</td><td></td><td class="pct c">100%</td>${ms.map(m => `<td class="red">${money(res.totalNav[m])}</td>`).join('')}<td></td><td>${money(invested)}</td></tr>`);
-  rows.push(`<tr class="ret"><td class="l">组合月度收益</td><td></td><td></td>${ms.map(m => `<td>${pct(res.portRet[m])}</td>`).join('')}<td>${pct(res.ytd)}</td><td></td></tr>`);
+  rows.push(`<tr class="total"><td class="l">总计</td><td></td><td class="pct c">100%</td>${ms.map(m => `<td class="red"${at(o, 'total_nav', m)}>${money(res.totalNav[m])}</td>`).join('')}<td></td><td>${money(invested)}</td></tr>`);
+  rows.push(`<tr class="ret"><td class="l">组合月度收益</td><td></td><td></td>${ms.map(m => `<td${at(o, 'port_ret', m)}>${pct(res.portRet[m])}</td>`).join('')}<td${at(o, 'ytd')}>${pct(res.ytd)}</td><td></td></tr>`);
   return `<table><thead><tr><th class="l">Table-3: 投资组合净值（${escape(reportCurrency(ds))}）</th><th class="c">风险分类</th><th class="c">持仓比例</th>${head}<th>YTD ${monthParts(ds.asOf)[0]}</th><th>总计投资金额</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
-function table4(ds: Dataset, res: Result) {
+function table4(ds: Dataset, res: Result, o: Outputs) {
   const ms = res.reportMonths; const [year, month] = monthParts(ds.asOf);
   return `<table><thead><tr><th class="l">Table-4: 组合IRR计算（假设${String(year).slice(2)}年${month}月底全部赎回）</th>${ms.map(() => '<th></th>').join('')}<th>投资以来（IRR）</th></tr></thead><tbody>`
-    + `<tr><td class="l">资金流</td>${ms.map(m => `<td>${flowText(-res.totalFlow[m])}</td>`).join('')}<td class="irr est">${money(res.totalNav[ds.asOf])}</td></tr>`
-    + `<tr><td class="l"><b>年化收益率</b></td>${ms.map(() => '<td></td>').join('')}<td class="irr">${pct(res.irr)}</td></tr></tbody></table>`;
+    + `<tr><td class="l">资金流</td>${ms.map(m => `<td${at(o, 'total_flow', m)}>${flowText(-res.totalFlow[m])}</td>`).join('')}<td class="irr est"${at(o, 'total_nav', ds.asOf)}>${money(res.totalNav[ds.asOf])}</td></tr>`
+    + `<tr><td class="l"><b>年化收益率</b></td>${ms.map(() => '<td></td>').join('')}<td class="irr"${at(o, 'irr')}>${pct(res.irr)}</td></tr></tbody></table>`;
 }
-function page2(ds: Dataset, res: Result) {
+function page2(ds: Dataset, res: Result, o: Outputs) {
   const alloc = (['风险', '地域', '策略'] as const).flatMap(dim => [
     `<tr><td class="dim">${dim}：</td>${res.alloc[dim].map(([t]) => `<td>${escape(t)}</td>`).join('')}</tr>`,
-    `<tr><td></td>${res.alloc[dim].map(([, v]) => `<td>${pct(v, 0)}</td>`).join('')}</tr>`,
+    `<tr><td></td>${res.alloc[dim].map(([t, v]) => `<td${at(o, 'alloc', dim, t)}>${pct(v, 0)}</td>`).join('')}</tr>`,
   ]).join('');
   const [, month, day] = monthEnd(ds.asOf).split('-');
   const md = `${month}/${day}`; const keys = fundKeys(ds);
   const rows = keys.map(k => {
     const f = ds.funds[k]; const n = res.nav[k][ds.asOf]; const first = res.firstInvest[k];
-    return `<tr><td class="l"><b>${escape(k)}</b></td><td class="l">${escape(f.risk)}</td><td class="l">${escape(f.region)}</td><td class="l">${escape(f.strategy)}</td><td>${money(res.invested[k])}</td><td>${money(n?.value)}</td><td>${pct(res.weights[k], 0)}</td><td>${first ? shortDate(first) : ''}</td></tr>`;
+    return `<tr><td class="l"><b>${escape(k)}</b></td><td class="l">${escape(f.risk)}</td><td class="l">${escape(f.region)}</td><td class="l">${escape(f.strategy)}</td><td${at(o, 'invested', k)}>${money(res.invested[k])}</td><td${at(o, 'nav', k, ds.asOf)}>${money(n?.value)}</td><td${at(o, 'weight', k)}>${pct(res.weights[k], 0)}</td><td>${first ? shortDate(first) : ''}</td></tr>`;
   });
-  rows.push(`<tr class="total"><td class="l">Total</td><td></td><td></td><td></td><td>${money(keys.reduce((s, k) => s + res.invested[k], 0))}</td><td>${money(res.totalNav[ds.asOf])}</td><td>100%</td><td></td></tr>`);
+  rows.push(`<tr class="total"><td class="l">Total</td><td></td><td></td><td></td><td>${money(keys.reduce((s, k) => s + res.invested[k], 0))}</td><td${at(o, 'total_nav', ds.asOf)}>${money(res.totalNav[ds.asOf])}</td><td>100%</td><td></td></tr>`);
   return `<table class="alloc"><caption>持仓分类</caption>${alloc}</table><table class="holdings"><thead><tr><th>当前基金</th><th>风险</th><th>地区</th><th>策略</th><th>总计<br>投资金额</th><th>${md}<br>NAV</th><th>${md}<br>持仓比例</th><th>首次投资日期</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 const endText = (m: Month) => { const [y, mo, d] = monthEnd(m).split('-').map(Number); return { y, mo, d }; };
@@ -132,7 +141,8 @@ const endText = (m: Month) => { const [y, mo, d] = monthEnd(m).split('-').map(Nu
 /** Unpublished reports are served with a watermark; the stored document never contains it. */
 export const withDraftMark = (html: string) => html.replace('<body>', '<body><div class="draft">草稿 · 未发布</div>');
 
-export function renderReport(ds: Dataset, res: Result, options: { brand: string }) {
+export function renderReport(ds: Dataset, res: Result, options: { brand: string; outputs?: Outputs }) {
+  const o = options.outputs || {};
   const { y, mo, d } = endText(ds.asOf);
   const estimateNow = fundKeys(ds).some(k => ds.returns[k]?.[ds.asOf]?.estimate);
   const notes = ['注：1. 上述回报中基金表现部分，单只基金月度及全年回报均使用底层基金报告数据；组合月度收益基于客户实际净值计算。'];
@@ -141,10 +151,10 @@ export function renderReport(ds: Dataset, res: Result, options: { brand: string 
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${title}</title><style>${CSS}</style></head><body>
 <div class="page"><div class="logo">${escape(options.brand)}<span>.</span></div>
 <h1>${title}</h1>
-<div class="sub">➢ 按月度的复利计算，<b>${y} YTD</b>回报共计约为<b>${pct(res.ytd, 1)}</b></div>
-${table1(ds, res)}${table3(ds, res)}${table4(ds, res)}
+<div class="sub">➢ 按月度的复利计算，<b>${y} YTD</b>回报共计约为<b${at(o, 'ytd')}>${pct(res.ytd, 1)}</b></div>
+${table1(ds, res, o)}${table3(ds, res, o)}${table4(ds, res, o)}
 <div class="notes">${notes.join('<br>')}</div></div>
-<div class="page">${page2(ds, res)}</div>
+<div class="page">${page2(ds, res, o)}</div>
 </body></html>`;
 }
 

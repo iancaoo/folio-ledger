@@ -103,6 +103,12 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
                         role if not role or role.endswith("型") else role + "型",
                         (s.get("investment_region") or "").strip(), (s.get("strategy") or "").strip(), order)
 
+    lineage = {"trades": defaultdict(list), "prices": defaultdict(dict), "returns": defaultdict(dict),
+               "bench_levels": defaultdict(list),
+               "tags": {key_of[s["id"]]: {col: {"table": "finance_funds", "id": s["fund_id"], "col": field, "value": s.get(field)}
+                                          for col, field in (("配置策略", "allocation_role"), ("投资地区", "investment_region"),
+                                                             ("基金策略", "strategy"))} for s in held}}
+
     flows: dict[str, dict[Month, float]] = {k: defaultdict(float) for k in funds}
     unit_moves: dict[str, list[tuple[Month, float]]] = {k: [] for k in funds}
     for t in txns:
@@ -110,6 +116,10 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
         sign = -1 if t["transaction_type"] == "赎回" else 1
         flows[k][m] += sign * float(t["amount"])
         unit_moves[k].append((m, sign * float(t["confirmed_units"])))
+        lineage["trades"][k].append({
+            "month": m, "sign": sign, "kind": t["transaction_type"], "amount": float(t["amount"]),
+            "units": float(t["confirmed_units"]), "date": t["confirmation_date"][:10], "note": t.get("remarks") or "",
+            "src_amount": _record("finance_transactions", t, "amount"), "src_units": _record("finance_transactions", t, "confirmed_units")})
 
     navs: dict[str, dict[Month, Nav]] = {k: {} for k in funds}
     for n in snap["fund_navs"]:
@@ -119,6 +129,7 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
         units = sum(q for mm, q in unit_moves[k] if mm <= m)
         if units > 1e-9:
             navs[k][m] = Nav(units * float(n["nav_per_unit"]), "对账单")
+        lineage["prices"][k][m] = {"value": float(n["nav_per_unit"]), "src": _record("finance_fund_navs", n, "nav_per_unit")}
 
     returns: dict[str, dict[Month, Return]] = {k: {} for k in funds}
     for r in snap["fund_returns"]:
@@ -126,6 +137,7 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
         if k is None or m > as_of:
             continue
         returns[k][m] = Return(value=float(r["mtd_return"]), estimate=r.get("estimate_label") == "是", source="基金收益率")
+        lineage["returns"][k][m] = {"MTD收益率": _record("finance_fund_returns", r, "mtd_return")}
 
     # 与 Finance 插件一致：未指定时，只报告在报告月有点位的基准；同月多个点位取最后一个。
     if benchmark_ids:
@@ -135,21 +147,35 @@ def dataset_from_snapshot(snap: dict, entity_id: str, as_of: Month | None = None
         chosen = [b for b in snap["benchmarks"] if b["id"] in current]
     names = {b["id"]: b["name"] for b in chosen}
     levels: dict[str, dict[Month, float]] = defaultdict(dict)
+    level_rows: dict[str, dict[Month, dict]] = defaultdict(dict)
     for v in snap["benchmark_values"]:
         if _month(v["value_date"]) <= as_of and v["benchmark_id"] in names:
             levels[names[v["benchmark_id"]]][_month(v["value_date"])] = float(v["index_value"])
+            level_rows[names[v["benchmark_id"]]][_month(v["value_date"])] = v
     benchmarks = list(names.values())
     for b in benchmarks:
         pts = sorted(levels[b].items())
+        lineage["bench_levels"][b] = [(m, lv, {"table": "finance_benchmark_values", "id": level_rows[b][m]["benchmark_id"],
+                                               "date": level_rows[b][m]["value_date"], "col": "index_value"})
+                                      for m, lv in pts]
         returns[b] = {m: Return(value=v / pv - 1, source="基准净值") for (pm, pv), (m, v) in zip(pts, pts[1:])}
 
     name = entity.get("common_name") or entity["legal_name"]
     ds = Dataset(name, as_of, funds, benchmarks, returns, navs, {k: dict(v) for k, v in flows.items()},
                  client_code=entity["client_code"])
+    ds.lineage = {key: dict(v) for key, v in lineage.items()}
     if snap.get("demo_mode"):
         ds.provenance = {("Finance", t, "模拟"): n for t in SNAPSHOT_TABLES
                          if (n := len([r for r in _scoped(snap, t, entity_id, set(key_of), as_of, set(names))]))}
     return ds
+
+
+def _record(table: str, row: dict, col: str) -> dict:
+    """Finance 记录定位：记录 ID（或业务键），以及导入时的批次、工作表和原文件行号。"""
+    key = {"id": row["id"]} if "id" in row else {"share_class_id": row.get("share_class_id"),
+                                                 "date": row.get("nav_date") or row.get("return_date")}
+    return {"table": table, **key, "col": col, "batch": row.get("source_batch_id"),
+            "sheet": row.get("source_sheet"), "row": row.get("source_row")}
 
 
 def _scoped(snap: dict, table: str, entity_id: str, class_ids: set[str], as_of: Month, benchmark_ids: set[str]):

@@ -16,15 +16,24 @@ class Sheet:
         self.name = name
         rows = list(ws.iter_rows())
         self.header = [str(c.value).strip() if c.value is not None else "" for c in rows[0]]
-        self.rows, self.tags = [], []
+        self.rows, self.tags, self.row_numbers = [], [], []
         for r in rows[1:]:
             if all(c.value in (None, "") for c in r):
                 continue
             self.rows.append({h: c.value for h, c in zip(self.header, r)})
             self.tags.append({h: tag_of(c) for h, c in zip(self.header, r)})
+            self.row_numbers.append(r[0].row)
 
     def __iter__(self):
         return iter(zip(self.rows, self.tags))
+
+    def located(self):
+        """(行号, 行, 单元格标注)"""
+        return zip(self.row_numbers, self.rows, self.tags)
+
+
+def _src(sheet: str, row: int, col: str, tags: dict) -> dict:
+    return {"sheet": sheet, "row": row, "col": col, "tag": tags.get(col)}
 
 
 class SystemData:
@@ -67,15 +76,19 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
     track("客户", {k: v for k, v in client[1].items() if k in ("客户编号", "投资主体名称")})
     name = client[0].get("常用名") or client[0]["投资主体名称"]
 
-    txns = [(r, t) for r, t in sd.sheets["申赎记录"]
+    lineage = {"trades": defaultdict(list), "prices": defaultdict(dict), "returns": defaultdict(dict),
+               "bench_levels": defaultdict(list), "tags": {}}
+    txns = [(n, r, t) for n, r, t in sd.sheets["申赎记录"].located()
             if str(r["客户编号"]).strip() == client_code and _month(r["确认日期"]) <= as_of]
-    held = {str(r["基金"]).strip() for r, _ in txns}
+    held = {str(r["基金"]).strip() for _, r, _ in txns}
 
     funds, missing_required = {}, []
     required = [c.name for c in SHEETS["三方基金"] if c.required]
     order = 0
     for sheet in ("三方基金", "自营基金"):
-        for r, t in sd.sheets.get(sheet, []):
+        if sheet not in sd.sheets:
+            continue
+        for n, r, t in sd.sheets[sheet].located():
             k = str(r["基金简称"]).strip()
             if k not in held:
                 continue
@@ -85,6 +98,7 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
             funds[k] = Fund(k, f"{k}（{detail}）" if detail else k, f"{k} - {share}" if share else k,
                             role if not role or role.endswith("型") else role + "型",
                             str(r.get("投资地区") or "").strip(), str(r.get("基金策略") or "").strip(), order)
+            lineage["tags"][k] = {c: {**_src(sheet, n, c, t), "value": r.get(c)} for c in ("配置策略", "投资地区", "基金策略")}
             order += 1
             if sheet == "三方基金":
                 missing_required += [(sheet, k, c) for c in required if r.get(c) in (None, "")]
@@ -94,18 +108,25 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
 
     flows: dict[str, dict[Month, float]] = {k: defaultdict(float) for k in funds}
     unit_moves: dict[str, list[tuple[Month, float]]] = {k: [] for k in funds}
-    for r, t in txns:
+    for n, r, t in txns:
         k, m = str(r["基金"]).strip(), _month(r["确认日期"])
-        sign = -1 if str(r["交易类型"]).strip() == "赎回" else 1
+        kind = str(r["交易类型"]).strip()
+        sign = -1 if kind == "赎回" else 1
         flows[k][m] += sign * float(r["金额"])
         unit_moves[k].append((m, sign * float(r["确认份额"])))
+        lineage["trades"][k].append({
+            "month": m, "sign": sign, "kind": kind, "amount": float(r["金额"]), "units": float(r["确认份额"]),
+            "date": str(r["确认日期"])[:10], "src_amount": _src("申赎记录", n, "金额", t),
+            "src_units": _src("申赎记录", n, "确认份额", t), "note": r.get("备注") or ""})
         track("申赎记录", t)
 
     unit_nav: dict[str, dict[Month, tuple[float, dict]]] = {k: {} for k in funds}
-    for r, t in sd.sheets["基金净值"]:
+    for n, r, t in sd.sheets["基金净值"].located():
         k = str(r["基金简称"]).strip()
         if k in funds and _month(r["日期"]) <= as_of:
-            unit_nav[k][_month(r["日期"])] = (float(r["单位净值"]), t)
+            m = _month(r["日期"])
+            unit_nav[k][m] = (float(r["单位净值"]), t)
+            lineage["prices"][k][m] = {"value": float(r["单位净值"]), "src": _src("基金净值", n, "单位净值", t)}
 
     navs: dict[str, dict[Month, Nav]] = {k: {} for k in funds}
     for k in funds:
@@ -116,7 +137,7 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
                 track("基金净值", t)
 
     returns: dict[str, dict[Month, Return]] = {k: {} for k in funds}
-    for r, t in sd.sheets["基金收益率"]:
+    for n, r, t in sd.sheets["基金收益率"].located():
         k, m = str(r["基金简称"]).strip(), _month(r["日期"])
         if k not in funds or m > as_of:
             continue
@@ -130,14 +151,16 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
         ret.note = r.get("备注") or ""
         ret.source = "基金收益率"
         returns[k][m] = ret
+        lineage["returns"][k][m] = {c: _src("基金收益率", n, c, t) for c in ("MTD收益率", "区间下限", "区间上限", "估算点值")}
         track("基金收益率", t)
 
     benchmarks = [str(r["基准名称"]).strip() for r, _ in sd.sheets["基准"]]
     levels: dict[str, list[tuple[Month, float]]] = defaultdict(list)
-    for r, t in sd.sheets["基准净值"]:
+    for n, r, t in sd.sheets["基准净值"].located():
         b, m = str(r["基准名称"]).strip(), _month(r["日期"])
         if b in benchmarks and m <= as_of:
             levels[b].append((m, float(r["净值"])))
+            lineage["bench_levels"][b].append((m, float(r["净值"]), _src("基准净值", n, "净值", t)))
             track("基准净值", t)
     for b in benchmarks:
         pts = sorted(levels[b])
@@ -147,4 +170,5 @@ def load_client(sd: SystemData, client_code: str, as_of: Month | None = None) ->
                  {k: dict(v) for k, v in flows.items()}, client_code=client_code)
     ds.provenance = dict(prov)
     ds.missing_required = missing_required
+    ds.lineage = {key: dict(v) for key, v in lineage.items()}
     return ds

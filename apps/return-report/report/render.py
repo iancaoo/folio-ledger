@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from html import escape
 
 from .checks import Finding
@@ -83,6 +84,20 @@ def _ret_text(r) -> str:
     return _pct(r.value)
 
 
+def _at(o: dict, *path) -> str:
+    """单元格对应的计算图节点，JSON 数组（基金名可能含空格）；没有计算图时为空。"""
+    v = o
+    for p in path:
+        if not isinstance(v, dict) or p not in v:
+            return ""
+        v = v[p]
+    return f' data-n="{escape(json.dumps(v if isinstance(v, list) else [v], ensure_ascii=False))}"'
+
+
+def _mk(m: Month) -> str:
+    return f"{m[0]}-{m[1]:02d}"
+
+
 def _name(n: str) -> str:
     for sep in ("（", "("):
         if sep in n:
@@ -91,7 +106,8 @@ def _name(n: str) -> str:
     return escape(n)
 
 
-def table1(ds: Dataset, res: Result) -> str:
+def table1(ds: Dataset, res: Result, o: dict | None = None) -> str:
+    o = o or {}
     ms = res.report_months
     head = "".join(f"<th>{_date(month_end(m))}</th>" for m in ms)
     rows = []
@@ -105,19 +121,21 @@ def table1(ds: Dataset, res: Result) -> str:
                 cls.append("est")
             if first and (m[0], m[1]) < (first.year, first.month):
                 cls.append("pre")
-            cells.append(f'<td class="{" ".join(cls)}">{_ret_text(r) if r else ""}</td>')
+            cells.append(f'<td class="{" ".join(cls)}"{_at(o, "ret_cell", k, _mk(m))}>{_ret_text(r) if r else ""}</td>')
         y = res.fund_ytd[k]
-        cells.append(f'<td class="ytd{" est" if y.estimate else ""}">{_ytd_text(y)}</td>')
+        cells.append(f'<td class="ytd{" est" if y.estimate else ""}"{_at(o, "fund_ytd", k)}>{_ytd_text(y)}</td>')
         rows.append(f'<tr class="fund"><td class="l name">{_name(ds.funds[k].name_t1)}</td>{"".join(cells)}</tr>')
     for b in ds.benchmarks:
-        cells = "".join(f"<td>{_ret_text(r) if (r := ds.returns.get(b, {}).get(m)) else ''}</td>" for m in ms)
+        cells = "".join(f'<td{_at(o, "bench_ret", b, _mk(m))}>{_ret_text(r) if (r := ds.returns.get(b, {}).get(m)) else ""}</td>'
+                        for m in ms)
         rows.append(f'<tr class="bench"><td class="l">{escape(b)}</td>{cells}'
-                    f'<td class="ytd">{_ytd_text(res.fund_ytd[b])}</td></tr>')
+                    f'<td class="ytd"{_at(o, "fund_ytd", b)}>{_ytd_text(res.fund_ytd[b])}</td></tr>')
     return (f'<table><thead><tr><th class="l">Table-1: 基金表现</th>{head}<th>YTD {ds.as_of[0]}</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def table3(ds: Dataset, res: Result) -> str:
+def table3(ds: Dataset, res: Result, o: dict | None = None) -> str:
+    o = o or {}
     ms = res.report_months
     head = "".join(f"<th>{_date(month_end(m))}</th>" for m in ms)
     rows = []
@@ -126,38 +144,42 @@ def table3(ds: Dataset, res: Result) -> str:
         for m in ms:
             n = res.nav[k].get(m)
             cls = "calc" if n and n.source in ("推算", "缺失") else ""
-            cells.append(f'<td class="{cls}">{_money(n.value) if n else ""}</td>')
+            cells.append(f'<td class="{cls}"{_at(o, "nav", k, _mk(m))}>{_money(n.value) if n else ""}</td>')
         rows.append(f'<tr><td class="l">{escape(ds.funds[k].name_t3)}</td><td class="c">{escape(ds.funds[k].risk)}</td>'
-                    f'<td class="pct c">{res.weights[k]:.0%}</td>{"".join(cells)}<td></td>'
-                    f'<td>{_money(res.invested[k])}</td></tr>')
-    totals = "".join(f'<td class="red">{_money(res.total_nav[m])}</td>' for m in ms)
+                    f'<td class="pct c"{_at(o, "weight", k)}>{res.weights[k]:.0%}</td>{"".join(cells)}<td></td>'
+                    f'<td{_at(o, "invested", k)}>{_money(res.invested[k])}</td></tr>')
+    totals = "".join(f'<td class="red"{_at(o, "total_nav", _mk(m))}>{_money(res.total_nav[m])}</td>' for m in ms)
     rows.append(f'<tr class="total"><td class="l">总计</td><td></td><td class="pct c">100%</td>{totals}<td></td>'
                 f'<td>{_money(sum(res.invested.values()))}</td></tr>')
-    rets = "".join(f"<td>{_pct(res.port_ret.get(m))}</td>" for m in ms)
-    rows.append(f'<tr class="ret"><td class="l">组合月度收益</td><td></td><td></td>{rets}<td>{_pct(res.ytd)}</td><td></td></tr>')
+    rets = "".join(f'<td{_at(o, "port_ret", _mk(m))}>{_pct(res.port_ret.get(m))}</td>' for m in ms)
+    rows.append(f'<tr class="ret"><td class="l">组合月度收益</td><td></td><td></td>{rets}'
+                f'<td{_at(o, "ytd")}>{_pct(res.ytd)}</td><td></td></tr>')
     return (f'<table><thead><tr><th class="l">Table-3: 投资组合净值（美元）</th><th class="c">风险分类</th>'
             f'<th class="c">持仓比例</th>{head}<th>YTD {ds.as_of[0]}</th><th>总计投资金额</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def table4(ds: Dataset, res: Result) -> str:
+def table4(ds: Dataset, res: Result, o: dict | None = None) -> str:
+    o = o or {}
     ms = res.report_months
     head = "".join("<th></th>" for _ in ms)
-    flows = "".join(f"<td>{_flow(-res.total_flow[m])}</td>" for m in ms)
+    flows = "".join(f'<td{_at(o, "total_flow", _mk(m))}>{_flow(-res.total_flow[m])}</td>' for m in ms)
     blanks = "".join("<td></td>" for _ in ms)
     return (f'<table><thead><tr><th class="l">Table-4: 组合IRR计算（假设{str(ds.as_of[0])[2:]}年{ds.as_of[1]}月底全部赎回）</th>'
             f'{head}<th>投资以来（IRR）</th></tr></thead><tbody>'
-            f'<tr><td class="l">资金流</td>{flows}<td class="irr est">{_money(res.total_nav[ds.as_of])}</td></tr>'
-            f'<tr><td class="l"><b>年化收益率</b></td>{blanks}<td class="irr">{_pct(res.irr)}</td></tr>'
+            f'<tr><td class="l">资金流</td>{flows}<td class="irr est"{_at(o, "total_nav", _mk(ds.as_of))}>'
+            f'{_money(res.total_nav[ds.as_of])}</td></tr>'
+            f'<tr><td class="l"><b>年化收益率</b></td>{blanks}<td class="irr"{_at(o, "irr")}>{_pct(res.irr)}</td></tr>'
             f'</tbody></table>')
 
 
-def page2(ds: Dataset, res: Result) -> str:
+def page2(ds: Dataset, res: Result, o: dict | None = None) -> str:
+    o = o or {}
     alloc_rows = []
     for dim, label in (("风险", "风险："), ("地域", "地域："), ("策略", "策略：")):
         g = res.alloc[dim]
         alloc_rows.append(f'<tr><td class="dim">{label}</td>' + "".join(f"<td>{escape(t)}</td>" for t in g) + "</tr>")
-        alloc_rows.append("<tr><td></td>" + "".join(f"<td>{v:.0%}</td>" for v in g.values()) + "</tr>")
+        alloc_rows.append("<tr><td></td>" + "".join(f'<td{_at(o, "alloc", dim, t)}>{v:.0%}</td>' for t, v in g.items()) + "</tr>")
     d = month_end(ds.as_of)
     md = f"{d.month:02d}/{d.day:02d}"
     rows = []
@@ -167,10 +189,12 @@ def page2(ds: Dataset, res: Result) -> str:
         fi = res.first_invest.get(k)
         rows.append(f'<tr><td class="l"><b>{escape(k)}</b></td><td class="l">{escape(f.risk)}</td>'
                     f'<td class="l">{escape(f.region)}</td><td class="l">{escape(f.strategy)}</td>'
-                    f'<td>{_money(res.invested[k])}</td><td>{_money(n.value if n else None)}</td>'
-                    f'<td>{res.weights[k]:.0%}</td><td>{_date(fi) if fi else ""}</td></tr>')
+                    f'<td{_at(o, "invested", k)}>{_money(res.invested[k])}</td>'
+                    f'<td{_at(o, "nav", k, _mk(ds.as_of))}>{_money(n.value if n else None)}</td>'
+                    f'<td{_at(o, "weight", k)}>{res.weights[k]:.0%}</td><td>{_date(fi) if fi else ""}</td></tr>')
     rows.append(f'<tr class="total"><td class="l">Total</td><td></td><td></td><td></td>'
-                f'<td>{_money(sum(res.invested.values()))}</td><td>{_money(res.total_nav[ds.as_of])}</td>'
+                f'<td>{_money(sum(res.invested.values()))}</td>'
+                f'<td{_at(o, "total_nav", _mk(ds.as_of))}>{_money(res.total_nav[ds.as_of])}</td>'
                 f'<td>100%</td><td></td></tr>')
     return (f'<table class="alloc"><caption>持仓分类</caption>{"".join(alloc_rows)}</table>'
             f'<table class="holdings"><thead><tr><th>当前基金</th><th>风险</th><th>地区</th><th>策略</th>'
@@ -178,21 +202,27 @@ def page2(ds: Dataset, res: Result) -> str:
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
-def render_report(ds: Dataset, res: Result) -> str:
+def render_report(ds: Dataset, res: Result, trace=None) -> str:
+    """trace 为计算图时，每个数字可点击回溯计算过程和原始数据。"""
+    o = trace.outputs if trace else {}
+    extra_css, panel = "", ""
+    if trace:
+        from . import trace_view
+        extra_css, panel = trace_view.CSS, trace_view.panel(trace)
     d = month_end(ds.as_of)
     est_now = any((r := ds.returns.get(k, {}).get(ds.as_of)) and r.estimate for k in ds.fund_keys)
     notes = ["注：1. 上述回报中基金表现部分，单只基金月度及全年回报均使用底层基金报告数据；组合月度收益基于客户实际净值计算。"]
     if est_now:
         notes.append(f"&emsp;&emsp;2. {d.month}月各基金业绩暂未披露完全，数据底色标红意为估算数据。")
     title = f"{escape(ds.client)} 投资组合回顾（截至{d.year}年{d.month}月{d.day}日）"
-    return f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>{title}</title><style>{CSS}</style></head><body>
+    return f"""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>{title}</title><style>{CSS}{extra_css}</style></head><body>
 <div class="page"><div class="logo">Amrita<span>.</span></div>
 <h1>{title}</h1>
-<div class="sub">➢ 按月度的复利计算，<b>{d.year} YTD</b>回报共计约为<b>{res.ytd:.1%}</b></div>
-{table1(ds, res)}{table3(ds, res)}{table4(ds, res)}
+<div class="sub">➢ 按月度的复利计算，<b>{d.year} YTD</b>回报共计约为<b{_at(o, "ytd")}>{res.ytd:.1%}</b></div>
+{table1(ds, res, o)}{table3(ds, res, o)}{table4(ds, res, o)}
 <div class="notes">{"<br>".join(notes)}</div></div>
-<div class="page">{page2(ds, res)}</div>
-</body></html>"""
+<div class="page">{page2(ds, res, o)}</div>
+{panel}</body></html>"""
 
 
 LEVEL_STYLE = {"错误": "#c00000", "警告": "#e46c0a", "提示": "#2e75b6"}

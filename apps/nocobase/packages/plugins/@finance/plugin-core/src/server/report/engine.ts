@@ -1,5 +1,6 @@
 import { FinanceError } from '../../shared/values';
 import { Dataset, Month, Nav, Return, dayNumber, fundKeys, monthEnd, monthRange, monthStart } from './model';
+import { DEFAULT_RULES, Rules, usedReturn } from './rules';
 
 export type FundYtd = { value: number | null; lo: number | null; hi: number | null; estimate: boolean };
 export type Allocation = Array<[string, number]>;
@@ -11,6 +12,7 @@ export type Result = {
   invested: Record<string, number>; firstInvest: Record<string, string>; weights: Record<string, number>;
   alloc: Record<'风险' | '地域' | '策略', Allocation>;
   missing: Array<[string, Month]>;
+  rules: Rules;
 };
 export type Orders = { risk: string[]; region: string[]; strategy: string[] };
 
@@ -38,7 +40,7 @@ function ordered(groups: Map<string, number>, order: string[]): Allocation {
   return keys.map(k => [k, groups.get(k)!]);
 }
 
-export function compute(ds: Dataset, orders: Orders): Result {
+export function compute(ds: Dataset, orders: Orders, rules: Rules = DEFAULT_RULES): Result {
   const keys = fundKeys(ds);
   const starts = keys.flatMap(k => [...Object.keys(ds.flows[k] || {}), ...Object.keys(ds.navs[k] || {})]);
   if (!starts.length) throw new FinanceError('NO_HOLDINGS', '该投资主体截至报告月没有申赎记录，无法生成月报', 'entity_id');
@@ -53,7 +55,7 @@ export function compute(ds: Dataset, orders: Orders): Result {
       const given = ds.navs[k]?.[m]; const r = ds.returns[k]?.[m];
       let cell: Nav | undefined;
       if (given) cell = given;
-      else if (base > 0 && r) cell = { value: base * (1 + r.used), source: '推算', estimate: r.estimate };
+      else if (base > 0 && r) cell = { value: base * (1 + usedReturn(rules, r)), source: '推算', estimate: r.estimate };
       else if (base > 0) { missing.push([k, m]); cell = { value: base, source: '缺失', estimate: true }; }
       if (cell) nav[k][m] = cell;
       prev = cell ? cell.value : 0;
@@ -91,5 +93,5 @@ export function compute(ds: Dataset, orders: Orders): Result {
     for (const k of keys) if (weights[k]) { const tag = ds.funds[k][attr]; groups.set(tag, (groups.get(tag) ?? 0) + weights[k]); }
     alloc[dim] = ordered(groups, order);
   }
-  return { months, reportMonths, nav, totalNav, totalFlow, portRet, ytd, irr: xirr(cashflows), fundYtd: fundYtds, invested, firstInvest, weights, alloc, missing };
+  return { months, reportMonths, nav, totalNav, totalFlow, portRet, ytd, irr: xirr(cashflows), fundYtd: fundYtds, invested, firstInvest, weights, alloc, missing, rules };
 }

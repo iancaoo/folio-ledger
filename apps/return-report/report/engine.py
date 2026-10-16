@@ -6,6 +6,7 @@ from math import prod
 
 from .config import REGION_ORDER, RISK_ORDER, STRATEGY_ORDER
 from .model import Dataset, Month, Nav, Return, month_end, month_range, month_start
+from .rules import DEFAULT_RULES, Rules
 
 
 @dataclass
@@ -32,6 +33,7 @@ class Result:
     weights: dict[str, float]
     alloc: dict[str, dict[str, float]]
     missing: list[tuple[str, Month]] = field(default_factory=list)
+    rules: Rules = DEFAULT_RULES
 
 
 def xirr(cashflows: list[tuple[date, float]]) -> float:
@@ -68,7 +70,7 @@ def _ordered(groups: dict[str, float], order: list[str]) -> dict[str, float]:
     return {k: groups[k] for k in keys}
 
 
-def compute(ds: Dataset) -> Result:
+def compute(ds: Dataset, rules: Rules = DEFAULT_RULES) -> Result:
     starts = [m for k in ds.fund_keys for m in list(ds.flows[k]) + list(ds.navs[k])]
     months = month_range(min(starts), ds.as_of)
     report_months = [m for m in months if m[0] == ds.as_of[0]]
@@ -85,7 +87,7 @@ def compute(ds: Dataset) -> Result:
             if given:
                 cell = given
             elif base > 0 and r:
-                cell = Nav(base * (1 + r.used), "推算", estimate=r.estimate)
+                cell = Nav(base * (1 + rules.used_return(r)), "推算", estimate=r.estimate)
             elif base > 0:
                 missing.append((k, m))
                 cell = Nav(base, "缺失", estimate=True)
@@ -134,4 +136,4 @@ def compute(ds: Dataset) -> Result:
         alloc[dim] = _ordered(g, order)
 
     return Result(months, report_months, nav, total_nav, total_flow, port_ret, ytd, xirr(cfs),
-                  fund_ytd, invested, first_invest, weights, alloc, missing)
+                  fund_ytd, invested, first_invest, weights, alloc, missing, rules)

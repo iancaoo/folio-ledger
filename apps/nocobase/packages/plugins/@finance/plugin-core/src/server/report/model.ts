@@ -47,6 +47,17 @@ export type Dataset = {
   provenance: Array<[string, string, string, number]>;
   /** Currencies seen in held share classes and their trades. */
   currencies: string[];
+  /** Where each input value came from, for the calculation trace. */
+  lineage?: Lineage;
+};
+/** Finance record locator: record id (or business key), column, and the import batch row it came from. */
+export type Src = Record<string, string | number | null>;
+export type Lineage = {
+  trades: Record<string, Array<{ month: Month; sign: number; kind: string; amount: number; units: number; date: string; src_amount: Src; src_units: Src }>>;
+  prices: Record<string, Record<Month, { value: number; src: Src }>>;
+  returns: Record<string, Record<Month, Record<string, Src>>>;
+  bench_levels: Record<string, Array<[Month, number, Src]>>;
+  tags: Record<string, Record<string, Src & { value: string | null }>>;
 };
 export const fundKeys = (ds: Dataset) => Object.keys(ds.funds).sort((a, b) => ds.funds[a].order - ds.funds[b].order);
 

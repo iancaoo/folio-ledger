@@ -1,7 +1,13 @@
 import { FinanceError } from '../../shared/values';
-import { Dataset, Fund, Month, Nav, Return, toMonth } from './model';
+import { Dataset, Fund, Lineage, Month, Nav, Return, Src, toMonth } from './model';
 
 const SNAPSHOT_TABLES = [['transactions', 'confirmation_date'], ['fund_navs', 'nav_date'], ['fund_returns', 'return_date'], ['benchmark_values', 'value_date']] as const;
+const TAG_FIELDS = [['配置策略', 'allocation_role'], ['投资地区', 'investment_region'], ['基金策略', 'strategy']] as const;
+
+function record(table: string, row: any, col: string): Src {
+  const key = 'id' in row ? { id: row.id } : { share_class_id: row.share_class_id ?? null, date: row.nav_date || row.return_date || null };
+  return { table, ...key, col, batch: row.source_batch_id ?? null, sheet: row.source_sheet ?? null, row: row.source_row ?? null };
+}
 
 /**
  * Assemble the calculation input for one entity from a report snapshot.
@@ -31,13 +37,19 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
       kind: s.fund_kind, currency: s.currency, order };
   });
 
+  const lineage: Lineage = { trades: {}, prices: {}, returns: {}, bench_levels: {}, tags: {} };
+  for (const s of held) lineage.tags[keyOf.get(s.id)!] = Object.fromEntries(TAG_FIELDS.map(([col, field]) =>
+    [col, { table: 'finance_funds', id: s.fund_id, col: field, value: s[field] ?? null }]));
+
   const flows: Dataset['flows'] = {}; const unitMoves: Record<string, Array<[Month, number]>> = {};
-  for (const k of Object.keys(funds)) { flows[k] = {}; unitMoves[k] = []; }
+  for (const k of Object.keys(funds)) { flows[k] = {}; unitMoves[k] = []; lineage.trades[k] = []; lineage.prices[k] = {}; lineage.returns[k] = {}; }
   for (const t of txns) {
     const k = keyOf.get(t.share_class_id)!; const m = toMonth(t.confirmation_date);
     const sign = t.transaction_type === '赎回' ? -1 : 1;
     flows[k][m] = (flows[k][m] ?? 0) + sign * Number(t.amount);
     unitMoves[k].push([m, sign * Number(t.confirmed_units)]);
+    lineage.trades[k].push({ month: m, sign, kind: t.transaction_type, amount: Number(t.amount), units: Number(t.confirmed_units), date: t.confirmation_date.slice(0, 10),
+      src_amount: record('finance_transactions', t, 'amount'), src_units: record('finance_transactions', t, 'confirmed_units') });
   }
   const navs: Dataset['navs'] = Object.fromEntries(Object.keys(funds).map(k => [k, {} as Record<Month, Nav>]));
   for (const n of snap.fund_navs) {
@@ -45,12 +57,14 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     if (!k || m > asOf) continue;
     const units = unitMoves[k].filter(([mm]) => mm <= m).reduce((s, [, q]) => s + q, 0);
     if (units > 1e-9) navs[k][m] = { value: units * Number(n.nav_per_unit), source: '对账单' };
+    lineage.prices[k][m] = { value: Number(n.nav_per_unit), src: record('finance_fund_navs', n, 'nav_per_unit') };
   }
   const returns: Dataset['returns'] = Object.fromEntries(Object.keys(funds).map(k => [k, {} as Record<Month, Return>]));
   for (const r of snap.fund_returns) {
     const k = keyOf.get(r.share_class_id); const m = toMonth(r.return_date);
     if (!k || m > asOf) continue;
     returns[k][m] = new Return({ value: Number(r.mtd_return), estimate: r.estimate_label === '是', source: '基金收益率' });
+    lineage.returns[k][m] = { MTD收益率: record('finance_fund_returns', r, 'mtd_return') };
   }
   // Without an explicit choice, a benchmark is reported only when it has a level in the report month.
   const chosen = benchmarkIds?.length ? snap.benchmarks.filter((b: any) => benchmarkIds.includes(b.id))
@@ -59,10 +73,16 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
   const names = new Map<string, string>(chosen.map((b: any) => [b.id, b.name]));
   // The latest level within a month is that month's closing level; snapshot rows are date ordered.
   const levels = new Map<string, Map<Month, number>>([...names.values()].map(name => [name, new Map()]));
-  for (const v of snap.benchmark_values) if (toMonth(v.value_date) <= asOf && names.has(v.benchmark_id)) levels.get(names.get(v.benchmark_id)!)!.set(toMonth(v.value_date), Number(v.index_value));
+  const levelRows = new Map<string, Map<Month, any>>([...names.values()].map(name => [name, new Map()]));
+  for (const v of snap.benchmark_values) if (toMonth(v.value_date) <= asOf && names.has(v.benchmark_id)) {
+    levels.get(names.get(v.benchmark_id)!)!.set(toMonth(v.value_date), Number(v.index_value));
+    levelRows.get(names.get(v.benchmark_id)!)!.set(toMonth(v.value_date), v);
+  }
   const benchmarks = [...names.values()];
   for (const b of benchmarks) {
     const points = [...levels.get(b)!.entries()].sort(([a], [c]) => byCodePoint(a, c));
+    lineage.bench_levels[b] = points.map(([m, level]) => { const v = levelRows.get(b)!.get(m);
+      return [m, level, { table: 'finance_benchmark_values', id: v.benchmark_id, date: v.value_date, col: 'index_value' }]; });
     returns[b] = {};
     for (let i = 1; i < points.length; i++) returns[b][points[i][0]] = new Return({ value: points[i][1] / points[i - 1][1] - 1, source: '基准净值' });
   }
@@ -77,5 +97,5 @@ export function datasetFromSnapshot(snap: any, entityId: string, asOf: Month, be
     if (count) provenance.push(['Finance', table, '模拟', count]);
   }
   const currencies = [...new Set<string>([...held.map(s => s.currency), ...txns.map((t: any) => t.currency)].filter(Boolean))].sort();
-  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies };
+  return { client: entity.common_name || entity.legal_name, clientCode: entity.client_code, entityId, asOf, funds, benchmarks, returns, navs, flows, provenance, currencies, lineage };
 }

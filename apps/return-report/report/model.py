@@ -115,6 +115,8 @@ class Dataset:
     client_code: str = ""
     provenance: dict[tuple[str, str, str], int] = field(default_factory=dict)
     missing_required: list[tuple[str, str, str]] = field(default_factory=list)
+    # 原始数据定位，供计算图回溯：trades / prices / returns / bench_levels / tags，见 report/trace.py
+    lineage: dict = field(default_factory=dict)
 
     @property
     def fund_keys(self) -> list[str]:

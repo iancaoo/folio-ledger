@@ -5,6 +5,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { RemoteSelect } from './RemoteSelect';
 import { PageIntro, TwoLine } from './ui';
 import { localToday } from './BusinessPages';
+import { TracePanel } from './TracePanel';
 
 const { Text, Paragraph } = Typography;
 const prefix = (label: string) => <span className="finance-prefix">{label}</span>;
@@ -118,8 +119,9 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
   const api = useAPIClient();
   const [run, setRun] = useState<any>(); const [html, setHtml] = useState<Record<string, string>>({}); const [error, setError] = useState('');
   const [note, setNote] = useState(''); const [confirming, setConfirming] = useState(false);
+  const [trace, setTrace] = useState<any>(); const [traceNote, setTraceNote] = useState(''); const [picked, setPicked] = useState<string[]>();
   useEffect(() => {
-    if (!id) { setRun(undefined); setHtml({}); return; }
+    if (!id) { setRun(undefined); setHtml({}); setTrace(undefined); setTraceNote(''); setPicked(undefined); return; }
     let current = true;
     api.request({ url: 'finance:reportRun', params: { id } }).then(async response => {
       if (!current) return;
@@ -127,10 +129,37 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
       if (['ready', 'published', 'superseded'].includes(data.status)) {
         const [report, checks] = await Promise.all(['report', 'checks'].map(kind => api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id, kind }, responseType: 'text' }).then(r => r.data)));
         if (current) setHtml({ report, checks });
+        api.request({ skipNotify: true, url: 'finance:reportTrace', params: { id } })
+          .then(r => { if (current) { setTrace(r.data.data); setTraceNote(''); } })
+          .catch(e => { if (current) { setTrace(undefined); setTraceNote(e.response?.data?.errors?.[0]?.message || '计算追溯读取失败'); } });
       }
     }).catch(e => { if (current) setError(e.response?.data?.errors?.[0]?.message || '月报读取失败'); });
     return () => { current = false; };
   }, [id, tick]);
+  // The preview runs no scripts; the drawer reads its cells (same-origin, script-free sandbox) to open the trace.
+  const linkCells = (frameEl: HTMLIFrameElement | null) => {
+    const doc = frameEl?.contentDocument;
+    if (!doc || !trace || doc.body?.dataset.traceLinked) return;
+    doc.body.dataset.traceLinked = '1';
+    const style = doc.createElement('style');
+    style.textContent = '[data-n]{cursor:pointer}[data-n]:hover{outline:2px solid #2e75b6;outline-offset:-2px}[data-n].trace-sel{outline:2px solid #c00000;outline-offset:-2px}'
+      + '[data-n].trace-f{background-image:linear-gradient(225deg,#c00000 6px,transparent 6px)}';
+    doc.head.appendChild(style);
+    const flagged = new Set((trace.findings || []).map(f => f.node).filter(Boolean));
+    doc.querySelectorAll<HTMLElement>('[data-n]').forEach(cell => {
+      let ids: string[] = [];
+      try { ids = JSON.parse(cell.dataset.n!).filter((n: string) => trace.nodes[n]); } catch { return; }
+      if (!ids.length) return;
+      if (ids.some(n => flagged.has(n))) cell.classList.add('trace-f');
+      cell.title = '点击查看计算过程';
+      cell.addEventListener('click', () => {
+        doc.querySelectorAll('.trace-sel').forEach(e => e.classList.remove('trace-sel'));
+        cell.classList.add('trace-sel'); setPicked(ids);
+      });
+    });
+  };
+  const previewRef = useRef<HTMLIFrameElement | null>(null);
+  useEffect(() => linkCells(previewRef.current), [trace, html.report]);
   async function download(kind: string) {
     try {
       const response = await api.request({ skipNotify: true, url: 'finance:reportDocument', params: { id, kind, download: '1' }, responseType: 'blob' });
@@ -154,7 +183,17 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
     {error && <Alert type="error" showIcon message={error} />}
     {run && !ready && <Alert type={run.status === 'failed' ? 'error' : 'info'} showIcon message={run.status === 'failed' ? `生成失败：${run.error}` : '正在读取数据快照并计算，完成后自动刷新'} />}
     {ready && <Tabs items={[
-      { key: 'report', label: '月报预览', children: <>{run.status !== 'published' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="未发布的月报带“草稿”水印；复核后发布即可去除" />}{frame(html.report)}</> },
+      { key: 'report', label: '月报预览', children: <>
+        {run.status !== 'published' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="未发布的月报带“草稿”水印；复核后发布即可去除" />}
+        {trace ? <Alert style={{ marginBottom: 12 }} type="info" showIcon message="点击月报中的任意数字，右侧展开它的计算过程和原始数据；右上角带红角的数字挂有校验提示" />
+          : traceNote && <Alert style={{ marginBottom: 12 }} type="info" showIcon message={traceNote} />}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>{html.report
+            ? <iframe ref={previewRef} title="月报预览" sandbox="allow-same-origin" srcDoc={html.report} onLoad={event => linkCells(event.currentTarget)} style={{ width: '100%', height: '72vh', border: '1px solid var(--finance-border)', borderRadius: 6, background: '#eef1f5' }} />
+            : <Empty description="月报尚未生成" />}</div>
+          {trace && picked && <div style={{ width: 460, flex: 'none' }}><TracePanel trace={trace} ids={picked} onClose={() => setPicked(undefined)} /></div>}
+        </div>
+      </> },
       { key: 'checks', label: <Space size={4}>校验结果<Counts counts={counts} /></Space>, children: <>
         {!run.findings?.length && <Alert type="success" showIcon message="全部检查项通过" />}
         {run.findings?.map((f, i) => <Alert key={i} style={{ marginBottom: 8 }} type={f.level === '错误' ? 'error' : f.level === '警告' ? 'warning' : 'info'} showIcon
@@ -165,6 +204,10 @@ function ReportDrawer({ id, close, canWrite, post, busy, tick }: any) {
         { key: 'snapshot', label: '数据快照时间', children: run.snapshot_at ? new Date(run.snapshot_at).toLocaleString('zh-CN') : '—' },
         { key: 'sha', label: '快照指纹（SHA-256）', children: <Space wrap><Text code copyable>{run.snapshot_sha256}</Text><Button size="small" onClick={() => download('snapshot')}>下载数据快照</Button></Space> },
         { key: 'engine', label: '计算版本', children: run.engine_version },
+        { key: 'rules', label: '计算口径', children: run.summary?.trace ? `${run.summary.trace.rules.id}：${run.summary.trace.rules.range_value_text}` : '—' },
+        { key: 'graph', label: '计算追溯', children: run.summary?.trace
+          ? `${run.summary.trace.nodes} 个计算节点，其中原始数据 ${run.summary.trace.leaves} 项；生成时已逐节点复核，与计算结果一致`
+          : '该月报生成于计算追溯上线之前，重新生成后可追溯' },
         { key: 'currency', label: '报告币种', children: run.summary?.currency },
         { key: 'owner', label: '生成人', children: `${run.owner_name || run.owner_id} · ${new Date(run.created_at).toLocaleString('zh-CN')}` },
         { key: 'publisher', label: '发布人', children: run.published_at ? `${run.publisher_name || run.published_by} · ${new Date(run.published_at).toLocaleString('zh-CN')}` : '未发布' },
