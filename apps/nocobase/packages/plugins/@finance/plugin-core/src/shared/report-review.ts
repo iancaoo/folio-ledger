@@ -12,13 +12,14 @@ export function findingKey(index: number, finding: { level?: string; category?: 
   return `f${index}-${digest}`;
 }
 
-/** Match the same issue across report versions. New runs use the check code; older runs use the title with numbers folded. */
-export function findingFingerprint(finding: { code?: string; category?: string; title?: string; fund?: string; month?: string; loc?: { date?: string } }) {
-  if (finding.code) return [finding.code, finding.fund || '', finding.month || '', finding.loc?.date || ''].join('|');
+/** Match the same issue across report versions. Runs without a check code use the title with numbers folded. */
+export function findingFingerprint(finding: { code?: string; category?: string; title?: string; fund?: string; month?: string; loc?: { date?: string; field?: string; benchmark?: string } }, legacy = false) {
+  if (!legacy && finding.code) return [finding.code, finding.fund || '', finding.month || '', finding.loc?.date || '', finding.loc?.field || '', finding.loc?.benchmark || ''].join('|');
   return [finding.category || '', finding.fund || '', finding.month || '', String(finding.title || '').replace(/\d+/g, '#')].join('|');
 }
 
 export function noteRequired(level: string, status: ReviewStatus) {
+  if (!status) return false;
   if (level === '错误') return true;
   return status === 'needs_fix' || status === 'not_applicable';
 }

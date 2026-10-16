@@ -1,7 +1,7 @@
 import { FinanceError } from '../../shared/values';
 import { findingFingerprint, findingKey } from '../../shared/report-review';
 import { monthEnd } from './model';
-import { traceLeafTarget } from '../../shared/trace-source';
+import { traceLeafTarget, shareClassRefs } from '../../shared/trace-source';
 
 const DOCUMENT_STATUSES = new Set(['ready', 'published', 'superseded']);
 const METRICS = ['ytd', 'irr', 'total_nav', 'total_invested'] as const;
@@ -27,11 +27,10 @@ function metaOf(run: any) {
     benchmark_ids: run.benchmark_ids || null, currency: run.summary?.currency || null, snapshot_sha256: run.snapshot_sha256,
   };
 }
-function leafIdentity(node: any) {
+function leafIdentity(id: string, node: any) {
   const src = node?.src;
-  if (!src?.table) return null;
-  if (src.id || src.share_class_id) return [src.table, src.id || '', src.share_class_id || '', String(src.date || '').slice(0, 10), src.col || ''].join('|');
-  return null;
+  if (src?.table && (src.id || src.share_class_id)) return [src.table, src.id || '', src.share_class_id || '', String(src.date || '').slice(0, 10), src.col || ''].join('|');
+  return `node|${id}`;
 }
 function outputIds(outputs: any) {
   const ids = new Set<string>();
@@ -64,12 +63,6 @@ function snapshotRows(snapshot: any, reportMonth: string) {
 function publicFields(row: any) {
   return Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith('source_')));
 }
-function recordRefs(snapshot: any) {
-  const share_classes = Object.fromEntries((snapshot?.share_classes || []).filter((row: any) => row?.id).map((row: any) => [row.id, { fund_id: row.fund_id }]));
-  const fund_navs = Object.fromEntries((snapshot?.fund_navs || []).filter((row: any) => row?.id).map((row: any) => [row.id, { share_class_id: row.share_class_id, fund_id: share_classes[row.share_class_id]?.fund_id, date: dated(row.nav_date) }]));
-  const fund_returns = Object.fromEntries((snapshot?.fund_returns || []).filter((row: any) => row?.id).map((row: any) => [row.id, { share_class_id: row.share_class_id, date: dated(row.return_date) }]));
-  return { share_classes, fund_navs, fund_returns };
-}
 function withTarget(row: any, entityId: string, refs: any) {
   return { ...row, target: traceLeafTarget(row.src, entityId, refs) };
 }
@@ -79,8 +72,8 @@ function diffTrace(base: any, head: any, limit: number, truncated: { value: bool
   const headNodes = head.trace.nodes || {};
   const baseByLeaf = new Map<string, string>();
   const headByLeaf = new Map<string, string>();
-  for (const [id, node] of Object.entries<any>(baseNodes)) { const key = node.op === 'leaf' ? leafIdentity(node) : null; if (key) baseByLeaf.set(key, id); }
-  for (const [id, node] of Object.entries<any>(headNodes)) { const key = node.op === 'leaf' ? leafIdentity(node) : null; if (key) headByLeaf.set(key, id); }
+  for (const [id, node] of Object.entries<any>(baseNodes)) if (node.op === 'leaf') baseByLeaf.set(leafIdentity(id, node), id);
+  for (const [id, node] of Object.entries<any>(headNodes)) if (node.op === 'leaf') headByLeaf.set(leafIdentity(id, node), id);
   const leaves: any[] = [];
   const seen = new Set<string>();
   for (const [key, id] of baseByLeaf) {
@@ -100,7 +93,7 @@ function diffTrace(base: any, head: any, limit: number, truncated: { value: bool
     if (!left || !right || close(left.value, right.value)) continue;
     results.push({ id, label: right.label, base: left.value ?? null, head: right.value ?? null, delta: delta(left.value, right.value) });
   }
-  const refs = recordRefs(head.snapshot);
+  const refs = shareClassRefs(head.snapshot);
   return {
     source: 'trace' as const,
     leaves: take(leaves, limit, truncated).map(row => withTarget(row, head.entity_id, refs)),
@@ -118,7 +111,7 @@ function diffSnapshot(base: any, head: any, reason: string, limit: number, trunc
     else if (!close(row.value, other.value)) leaves.push({ id: key, label: other.label, change: 'value', base: row.value, head: other.value, src: other.src });
   }
   for (const [key, row] of right) if (!left.has(key)) leaves.push({ id: key, label: row.label, change: 'added', base: null, head: row.value, src: row.src });
-  const refs = recordRefs(head.snapshot);
+  const refs = shareClassRefs(head.snapshot);
   return {
     source: 'snapshot' as const, reason,
     leaves: take(leaves, limit, truncated).map(row => withTarget(row, head.entity_id, refs)),
@@ -152,12 +145,16 @@ export function compareReports(base: any, head: any, limit = 200) {
     }
   }
   for (const [key, row] of headFunds) if (!baseFunds.has(key)) funds.push({ key, change: 'added', head: row, fields: [] });
-  const baseFindings = (base.findings || []).map((finding: any, index: number) => ({ ...finding, key: finding.key || findingKey(index, finding), fingerprint: findingFingerprint(finding) }));
-  const headFindings = (head.findings || []).map((finding: any, index: number) => ({ ...finding, key: finding.key || findingKey(index, finding), fingerprint: findingFingerprint(finding) }));
+  const rawBase = base.findings || [];
+  const rawHead = head.findings || [];
+  const legacy = rawBase.some((finding: any) => !finding.code) || rawHead.some((finding: any) => !finding.code);
+  const baseFindings = rawBase.map((finding: any, index: number) => ({ ...finding, key: finding.key || findingKey(index, finding), fingerprint: findingFingerprint(finding, legacy) }));
+  const headFindings = rawHead.map((finding: any, index: number) => ({ ...finding, key: finding.key || findingKey(index, finding), fingerprint: findingFingerprint(finding, legacy) }));
   const used = new Set<number>();
   const added: any[] = [];
   const removed: any[] = [];
   const levelChanged: any[] = [];
+  const withReview: any[] = [];
   let unchanged = 0;
   const baseReviews: Record<string, any> = {};
   const baseItems = base.finding_reviews?.items || {};
@@ -167,11 +164,20 @@ export function compareReports(base: any, head: any, limit = 200) {
     used.add(index);
     const previous = baseFindings[index];
     const review = baseItems[previous.key];
-    if (review?.status) baseReviews[finding.fingerprint] = { status: review.status, by: review.by, at: review.at, note: review.note || '' };
-    if (previous.level !== finding.level) levelChanged.push({ base: brief(previous), head: brief(finding) });
-    else unchanged += 1;
+    const packed = review?.status ? { status: review.status, by: review.by, at: review.at, note: review.note || '' } : undefined;
+    if (packed) baseReviews[finding.fingerprint] = packed;
+    if (previous.level !== finding.level) levelChanged.push({ base: brief(previous), head: { ...brief(finding), review: packed } });
+    else {
+      unchanged += 1;
+      if (packed) withReview.push({ ...brief(finding), review: packed });
+    }
   }
-  baseFindings.forEach((finding, index) => { if (!used.has(index)) removed.push(brief(finding)); });
+  baseFindings.forEach((finding, index) => {
+    if (used.has(index)) return;
+    const review = baseItems[finding.key];
+    const packed = review?.status ? { status: review.status, by: review.by, at: review.at, note: review.note || '' } : undefined;
+    removed.push({ ...brief(finding), review: packed });
+  });
   const baseRules = rulesOf(base.summary);
   const headRules = rulesOf(head.summary);
   const metaChanges: any[] = [];
@@ -186,10 +192,11 @@ export function compareReports(base: any, head: any, limit = 200) {
   return {
     base: metaOf(base), head: metaOf(head), same_snapshot: base.snapshot_sha256 === head.snapshot_sha256, meta_changes: metaChanges,
     metrics: take(metrics, limit, truncated), months: take(months, limit, truncated), funds: take(funds, limit, truncated),
-    findings: { added: take(added, limit, truncated), removed: take(removed, limit, truncated), level_changed: take(levelChanged, limit, truncated), unchanged, base_reviews: baseReviews },
+    findings: { added: take(added, limit, truncated), removed: take(removed, limit, truncated), level_changed: take(levelChanged, limit, truncated), unchanged, with_review: take(withReview, limit, truncated), base_reviews: baseReviews },
     data: { ...data, truncated: truncated.value },
+    limit,
   };
 }
 function brief(finding: any) {
-  return { level: finding.level, category: finding.category, title: finding.title, fund: finding.fund, month: finding.month, fingerprint: finding.fingerprint };
+  return { level: finding.level, category: finding.category, title: finding.title, fund: finding.fund, month: finding.month, fingerprint: finding.fingerprint, targets: finding.targets || [] };
 }

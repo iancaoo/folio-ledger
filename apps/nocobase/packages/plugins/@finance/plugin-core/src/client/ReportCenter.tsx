@@ -74,6 +74,11 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
   const shown = picked ?? data?.benchmark_ids ?? [];
   const groups = CATEGORIES.map(category => ({ category, items: (data?.items || []).filter((item: ReadinessItem) => item.category === category) })).filter(group => group.items.length);
   const current = data?.entity?.id === entityId ? data : undefined;
+  const jump = (target: ReportTarget) => {
+    if (!openTarget) return;
+    if (['nav', 'trades', 'positions', 'options'].includes(target.kind)) close();
+    openTarget(target);
+  };
   return <Drawer open={open} onClose={close} width={760} zIndex={999} destroyOnClose title={current?.entity ? `${current.entity.common_name || current.entity.legal_name} · ${month} 出报告前检查` : '出报告前检查'}
     footer={<Space><Button onClick={() => setRetry(value => value + 1)}>重新检查</Button><Button type="primary" disabled={!canWrite || !data || data.entity?.id !== entityId} loading={busy} onClick={generate}>生成月报</Button></Space>}>
     {error && <Alert type="error" showIcon message={error} action={<Button onClick={() => setRetry(value => value + 1)}>重试</Button>} />}
@@ -101,7 +106,7 @@ export function ReadinessDrawer({ open, close, entityId, month, benchmarkIds, ca
         <Text type="secondary">{group.category}</Text>
         {group.items.map((item: ReadinessItem, index: number) => <div key={`${item.code}-${item.fund || ''}-${item.month || ''}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
           <div style={{ flex: 1 }}><Space wrap><Tag bordered={false} color={item.level === '错误' ? 'error' : item.level === '警告' ? 'warning' : 'processing'}>{item.level}</Tag><Text strong>{item.title}</Text></Space><div><Text type="secondary">{item.detail}</Text></div></div>
-          <TargetButton target={item.target} label={targetLabel(item.code, item.target.kind)} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />
+          <TargetButton target={item.target} label={targetLabel(item.code, item.target.kind)} canWrite={canWrite} canConfigure={canConfigure} openTarget={jump} />
         </div>)}
       </div>)}
       </>}

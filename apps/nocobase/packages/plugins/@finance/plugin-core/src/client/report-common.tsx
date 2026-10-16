@@ -44,10 +44,10 @@ function FindingReview({ finding, review, runId, locked, canWrite, post }: any) 
   const [text, setText] = useState(review?.note || '');
   useEffect(() => { setChoice(review?.status || undefined); setText(review?.note || ''); }, [review?.revision, review?.status, review?.note]);
   const enabled = canWrite && !locked;
-  const required = finding.level === '错误' || choice === 'needs_fix' || choice === 'not_applicable';
+  const required = !!choice && (finding.level === '错误' || choice === 'needs_fix' || choice === 'not_applicable');
   async function submit(status: string | null) {
-    const note = (status === null ? text || review?.note || '' : text).trim();
-    if ((finding.level === '错误' || status === 'needs_fix' || status === 'not_applicable') && !note) { message.warning('请填写复核说明'); return; }
+    const note = text.trim();
+    if (status !== null && (finding.level === '错误' || status === 'needs_fix' || status === 'not_applicable') && !note) { message.warning('请填写复核说明'); return; }
     try { await post('reviewFinding', { id: runId, finding_key: finding.key, status, note, expected_revision: review?.revision || 0 }); }
     catch (error: any) { message.error(error.response?.data?.errors?.[0]?.message || '复核没有保存'); }
   }
@@ -75,6 +75,31 @@ export async function downloadReport(api: any, run: { id: string; client_code: s
 }
 
 const REVIEW_TEXT = { confirmed: '已确认', needs_fix: '需修改', not_applicable: '不适用' };
+const METRIC_TEXT = { ytd: '年初至今收益率', irr: '内部收益率', total_nav: '期末净值', total_invested: '累计投入' };
+const MONTH_TEXT = { nav: '净值', flow: '申赎', return: '收益率' };
+const FUND_TEXT = { weight: '权重', nav: '净值', nav_source: '净值来源', invested: '投入', ytd: '年初至今', first_invest: '首次投资', risk: '风险', region: '地区', strategy: '策略' };
+const CHANGE_TEXT = { added: '新增', removed: '删除', value: '数值变化', source: '来源变化', changed: '内容变化' };
+const SOURCE_TEXT = {
+  base_no_trace: '基准版本生成于计算追溯上线前，以下改为比较数据快照，未必都影响月报',
+  head_no_trace: '当前版本生成于计算追溯上线前，以下改为比较数据快照，未必都影响月报',
+  both_no_trace: '两版都生成于计算追溯上线前，以下改为比较数据快照，未必都影响月报',
+  schema_mismatch: '两版计算追溯的结构不一致，无法逐项对比原始数据',
+};
+const percentKeys = new Set(['ytd', 'irr', 'return', 'weight']);
+const moneyKeys = new Set(['total_nav', 'total_invested', 'nav', 'flow', 'invested']);
+function formatCompare(key: string, value: any) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'number' && percentKeys.has(key)) return pct(value);
+  if (typeof value === 'number' && moneyKeys.has(key)) return money(value);
+  if (typeof value === 'number') return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
+  if (typeof value === 'object') return '记录内容不同';
+  return String(value);
+}
+function ReviewRef({ review }: { review?: { status?: string; by_name?: string } }) {
+  if (!review?.status) return null;
+  const label = REVIEW_TEXT[review.status as keyof typeof REVIEW_TEXT] || review.status;
+  return <div><Text type="secondary">上一版：{label} · {review.by_name || '复核人'}（仅供参考）</Text></div>;
+}
 function ComparePane({ run, canWrite, canConfigure, openTarget }: any) {
   const api = useAPIClient();
   const [choices, setChoices] = useState<any[]>([]);
@@ -85,6 +110,7 @@ function ComparePane({ run, canWrite, canConfigure, openTarget }: any) {
   useEffect(() => {
     let current = true;
     setListed(false);
+    setResult(undefined);
     api.request({ url: 'finance:reportRuns', params: { entity_id: run.entity_id, report_month: run.report_month, status: 'ready,published,superseded', page_size: 50, order: 'newest' } }).then(response => {
       if (!current) return;
       const list = (response.data.data.rows || []).filter((item: any) => item.id !== run.id);
@@ -99,10 +125,21 @@ function ComparePane({ run, canWrite, canConfigure, openTarget }: any) {
   useEffect(() => {
     if (!partner) { setResult(undefined); return; }
     let current = true;
+    setResult(undefined);
     api.request({ url: 'finance:reportCompare', params: { base_id: partner, head_id: run.id } }).then(response => { if (current) { setResult(response.data.data); setError(''); } }).catch(e => { if (current) setError(e.response?.data?.errors?.[0]?.message || '版本对比失败'); });
     return () => { current = false; };
   }, [run.id, partner]);
-  const empty = result && !result.meta_changes?.length && !result.metrics?.length && !result.months?.length && !result.funds?.length && !result.findings?.added?.length && !result.findings?.removed?.length && !result.findings?.level_changed?.length && !result.data?.leaves?.length && !result.data?.results?.length;
+  const findings = result?.findings;
+  const empty = result && !result.meta_changes?.length && !result.metrics?.length && !result.months?.length && !result.funds?.length && !findings?.added?.length && !findings?.removed?.length && !findings?.level_changed?.length && !result.data?.leaves?.length && !result.data?.results?.length;
+  const metaItems = [
+    { key: 'engine', label: '计算版本', children: `${result?.base?.engine_version} → ${result?.head?.engine_version}` },
+    { key: 'rules', label: '计算口径', children: `${result?.base?.rules ? result.base.rules.text : '未记录（追溯上线前生成）'} → ${result?.head?.rules ? result.head.rules.text : '未记录（追溯上线前生成）'}` },
+    ...(result?.meta_changes || []).filter((item: any) => item.field === 'benchmarks' || item.field === 'currency').map((item: any) => ({
+      key: item.field,
+      label: item.field === 'benchmarks' ? '基准' : '币种',
+      children: item.field === 'currency' ? `${item.base || '—'} → ${item.head || '—'}` : `${Array.isArray(item.base) && item.base.length ? `${item.base.length} 个基准` : '默认基准'} → ${Array.isArray(item.head) && item.head.length ? `${item.head.length} 个基准` : '默认基准'}`,
+    })),
+  ];
   return <>
     <Space style={{ marginBottom: 12 }} wrap>
       <Text type="secondary">对比基准</Text>
@@ -110,20 +147,24 @@ function ComparePane({ run, canWrite, canConfigure, openTarget }: any) {
     </Space>
     {error && <Alert type="error" showIcon message={error} />}
     {listed && !partner && !error && <Empty description="没有可对比的其他版本" />}
-    {result?.same_snapshot && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="数据快照相同，差异来自计算版本、口径、候选值或基准选择" />}
-    {result?.data?.source === 'snapshot' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="一方生成于追溯上线前，以下为数据快照中的记录变化，未必都影响月报" />}
+    {result?.same_snapshot && !empty && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="数据快照相同，差异来自计算版本、口径、候选值或基准选择" />}
+    {result?.data?.source === 'snapshot' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message={SOURCE_TEXT[result.data.reason] || '以下改为比较数据快照，未必都影响月报'} />}
+    {result?.data?.source === 'none' && <Alert style={{ marginBottom: 12 }} type="warning" showIcon message={SOURCE_TEXT[result.data.reason] || '无法对比原始数据'} />}
+    {result?.data?.truncated && <Alert style={{ marginBottom: 12 }} type="info" showIcon message={`差异较多，每类仅显示前 ${result.limit} 条`} />}
+    {findings && <Paragraph>校验发现：相同 {findings.unchanged} 条，新增 {findings.added.length}，减少 {findings.removed.length}，级别变化 {findings.level_changed.length}。</Paragraph>}
     {empty && <Empty description="两版没有差异" />}
     {result && !empty && <>
-      <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="计算版本与口径" items={[
-        { key: 'engine', label: '计算版本', children: `${result.base.engine_version} → ${result.head.engine_version}` },
-        { key: 'rules', label: '计算口径', children: `${result.base.rules ? result.base.rules.text : '未记录（追溯上线前生成）'} → ${result.head.rules ? result.head.rules.text : '未记录（追溯上线前生成）'}` },
-      ]} />
-      {!!result.metrics?.length && <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="关键指标" items={result.metrics.map((item: any) => ({ key: item.key, label: item.key, children: `${item.base ?? '—'} → ${item.head ?? '—'}` }))} />}
-      {!!result.funds?.length && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="各基金按简称对照；同一基金改名会显示为删除一行并新增一行，可能为改名" />}
-      {!!result.findings?.level_changed?.length && <Text>校验发现有 {result.findings.level_changed.length} 项级别变化，新增 {result.findings.added.length}，减少 {result.findings.removed.length}。</Text>}
-      {Object.entries(result.findings?.base_reviews || {}).map(([fingerprint, review]: any) => <Text key={fingerprint} type="secondary">上一版：{REVIEW_TEXT[review.status] || review.status} · {review.by_name || '复核人'}</Text>)}
-      {!!result.data?.leaves?.length && <div style={{ marginTop: 12 }}><Text strong>原始数据与结果变化</Text>
-        {result.data.leaves.slice(0, 30).map((row: any) => <div key={row.id} style={{ display: 'flex', gap: 8, padding: '4px 0' }}><Text>{row.label}</Text><Tag>{row.change}</Tag><TargetButton target={row.target} label="打开记录" canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} /></div>)}
+      <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="计算版本与口径" items={metaItems} />
+      {!!result.metrics?.length && <Descriptions style={{ marginBottom: 12 }} column={1} bordered size="small" title="关键指标" items={result.metrics.map((item: any) => ({ key: item.key, label: METRIC_TEXT[item.key] || item.key, children: `${formatCompare(item.key, item.base)} → ${formatCompare(item.key, item.head)}` }))} />}
+      {!!result.months?.length && <div style={{ marginBottom: 12 }}><Text strong>月份</Text>{result.months.map((item: any) => <div key={`${item.month}-${item.field}`}>{item.month} {MONTH_TEXT[item.field] || item.field}：{formatCompare(item.field, item.base)} → {formatCompare(item.field, item.head)}</div>)}</div>}
+      {!!result.funds?.length && <div style={{ marginBottom: 12 }}><Text strong>基金</Text><div><Text type="secondary">各基金按简称对照；同一基金改名会显示为删除一行并新增一行，可能为改名</Text></div>{result.funds.map((item: any) => <div key={`${item.change}-${item.key}`} style={{ padding: '4px 0' }}><Space wrap><Text>{item.key}</Text><Tag>{CHANGE_TEXT[item.change] || item.change}</Tag></Space>{item.fields?.map((field: string) => <div key={field}>{FUND_TEXT[field as keyof typeof FUND_TEXT] || field}：{formatCompare(field, item.base?.[field])} → {formatCompare(field, item.head?.[field])}</div>)}</div>)}</div>}
+      {!!findings?.added?.length && <div style={{ marginBottom: 12 }}><Text strong>新增的发现</Text>{findings.added.map((item: any) => <div key={item.fingerprint} style={{ padding: '4px 0' }}><Space wrap><Tag>{item.level}</Tag><Text>{item.title}</Text>{(item.targets || []).map((target: any, index: number) => <TargetButton key={index} target={target.target} label={target.label || '打开记录'} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />)}</Space></div>)}</div>}
+      {!!findings?.removed?.length && <div style={{ marginBottom: 12 }}><Text strong>减少的发现</Text>{findings.removed.map((item: any) => <div key={item.fingerprint} style={{ padding: '4px 0' }}><Space wrap><Tag>{item.level}</Tag><Text>{item.title}</Text></Space><ReviewRef review={item.review} /></div>)}</div>}
+      {!!findings?.level_changed?.length && <div style={{ marginBottom: 12 }}><Text strong>级别变化</Text>{findings.level_changed.map((item: any) => <div key={item.head.fingerprint} style={{ padding: '4px 0' }}><Space wrap><Tag>{item.base.level} → {item.head.level}</Tag><Text>{item.head.title}</Text>{(item.head.targets || []).map((target: any, index: number) => <TargetButton key={index} target={target.target} label={target.label || '打开记录'} canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} />)}</Space><ReviewRef review={item.head.review} /></div>)}</div>}
+      {!!findings?.with_review?.length && <div style={{ marginBottom: 12 }}><Text strong>相同的发现</Text>{findings.with_review.map((item: any) => <div key={item.fingerprint} style={{ padding: '4px 0' }}><Space wrap><Tag>{item.level}</Tag><Text>{item.title}</Text></Space><ReviewRef review={item.review} /></div>)}</div>}
+      {!!result.data?.results?.length && <div style={{ marginBottom: 12 }}><Text strong>结果变化</Text>{result.data.results.map((item: any) => <div key={item.id} style={{ padding: '4px 0' }}><Text>{item.label}</Text> <Text>{formatCompare('', item.base)} → {formatCompare('', item.head)}</Text></div>)}</div>}
+      {!!result.data?.leaves?.length && <div style={{ marginTop: 12 }}><Text strong>原始数据变化</Text>
+        {result.data.leaves.map((row: any) => <div key={row.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0' }}><Text>{row.label}</Text><Tag>{CHANGE_TEXT[row.change] || row.change}</Tag><Text type="secondary">{formatCompare('', row.base)} → {formatCompare('', row.head)}</Text><TargetButton target={row.target} label="打开记录" canWrite={canWrite} canConfigure={canConfigure} openTarget={openTarget} /></div>)}
       </div>}
     </>}
   </>;

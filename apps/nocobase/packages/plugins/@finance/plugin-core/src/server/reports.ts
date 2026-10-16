@@ -16,6 +16,7 @@ import { findingTargets } from './report/targets';
 import { attachFindings, buildTrace, checkOutputs, verifyTrace } from './report/trace';
 import { reviewWorkbook } from './report/workbook';
 import { compareReports } from './report/compare';
+import { shareClassRefs } from '../shared/trace-source';
 
 export const REPORT_ENGINE_VERSION = 'finance-report/2';
 const CLAIM_MS = 5 * 60000;
@@ -34,17 +35,6 @@ const LIST_ORDER = {
 };
 
 const plain = (row: any) => row?.get ? row.get({ plain: true }) : row;
-function recordRefs(snapshot: any) {
-  const day = (value: any) => String(value || '').slice(0, 10);
-  const share_classes = Object.fromEntries((snapshot?.share_classes || []).filter((row: any) => row?.id).map((row: any) => [row.id, { fund_id: row.fund_id }]));
-  const index = (rows: any[] | undefined, pick: (row: any) => any) => Object.fromEntries((rows || []).filter(row => row?.id).map(row => [row.id, pick(row)]));
-  return {
-    share_classes,
-    fund_navs: index(snapshot?.fund_navs, row => ({ share_class_id: row.share_class_id, fund_id: share_classes[row.share_class_id]?.fund_id, date: day(row.nav_date) })),
-    fund_returns: index(snapshot?.fund_returns, row => ({ share_class_id: row.share_class_id, date: day(row.return_date) })),
-    benchmark_values: index(snapshot?.benchmark_values, row => ({ benchmark_id: row.benchmark_id, date: day(row.value_date) })),
-  };
-}
 function reviewerIds(raw: any) {
   const ids: any[] = [];
   for (const item of Object.values(raw?.items || {}) as any[]) ids.push(item?.by, ...(item?.history || []).map((entry: any) => entry.by));
@@ -269,11 +259,11 @@ export class FinanceReports {
     if (download) ctx.attachment(`${kind === 'checks' ? '校验报告' : '投资组合回顾'}_${row.client_code}_${row.report_month}.html`);
   }
   async trace(id: string) {
-    const [row] = await this.sql('SELECT r.status,r.trace,r.snapshot FROM finance_report_runs r WHERE r.id=:id', { id: uuid(id, 'id') });
+    const [row] = await this.sql(`SELECT r.status, r.trace, r.snapshot->'share_classes' AS share_classes FROM finance_report_runs r WHERE r.id=:id`, { id: uuid(id, 'id') });
     if (!row) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
     if (!DOCUMENT_STATUSES.includes(row.status)) throw new FinanceError('REPORT_NOT_READY', '月报尚未生成完成', 'id', 409);
     if (!row.trace) throw new FinanceError('TRACE_UNAVAILABLE', '该月报生成于计算追溯上线之前，重新生成后可追溯', 'id', 404);
-    return { ...row.trace, record_refs: recordRefs(row.snapshot) };
+    return { ...row.trace, record_refs: shareClassRefs(row.share_classes) };
   }
   async compare(input: any) {
     const baseId = uuid(input.base_id, 'base_id');
@@ -285,8 +275,17 @@ export class FinanceReports {
       FROM finance_report_runs WHERE id IN (:ids)`, { ids: [baseId, headId] });
     if (rows.length !== 2) throw new FinanceError('NOT_FOUND', '月报不存在', 'id', 404);
     const result = compareReports(rows.find(row => row.id === baseId), rows.find(row => row.id === headId), limit);
-    const names = await this.userNames(Object.values(result.findings.base_reviews).map((item: any) => item.by));
-    for (const review of Object.values(result.findings.base_reviews) as any[]) review.by_name = names[review.by] ?? null;
+    const names = await this.userNames([
+      ...Object.values(result.findings.base_reviews),
+      ...result.findings.removed.map((item: any) => item.review),
+      ...result.findings.with_review.map((item: any) => item.review),
+      ...result.findings.level_changed.map((item: any) => item.head.review),
+    ].filter(Boolean).map((item: any) => item.by));
+    const named = (review: any) => { if (review) review.by_name = names[review.by] ?? null; };
+    Object.values(result.findings.base_reviews).forEach(named);
+    result.findings.removed.forEach((item: any) => named(item.review));
+    result.findings.with_review.forEach((item: any) => named(item.review));
+    result.findings.level_changed.forEach((item: any) => named(item.head.review));
     return result;
   }
   async reviewFinding(payload: any, actor: string, transaction: any) {
@@ -299,7 +298,7 @@ export class FinanceReports {
     const note = typeof payload.note === 'string' ? payload.note.trim() : '';
     if ((payload.note !== undefined && payload.note !== null && typeof payload.note !== 'string') || note.length > 500) throw new FinanceError('INVALID_NOTE', '复核说明最多 500 字', 'note');
     const expected = payload.expected_revision === undefined ? 0 : payload.expected_revision;
-    if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 0) throw new FinanceError('STALE_REVISION', '该条复核已被他人修改，请刷新', 'expected_revision', 409);
+    if (typeof expected !== 'number' || !Number.isInteger(expected) || expected < 0) throw new FinanceError('INVALID_FILTER', '复核版本号无效', 'expected_revision');
     await this.service.lock([`report-run:${id}`], transaction);
     const run = await this.service.requiredRow('report_runs', id, transaction);
     if (run.get('status') !== 'ready') throw new FinanceError('REPORT_REVIEW_LOCKED', '已发布或已被替代的月报，复核记录不可修改', 'id', 409);

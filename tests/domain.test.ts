@@ -119,14 +119,11 @@ test('domain: every finding code maps to the record it came from', () => {
   assert.deepEqual(jump(''), []);
 });
 
-test('domain: trace leaves resolve through stored row ids', () => {
-  const refs = {
-    share_classes: { '00000000-0000-4000-8000-0000000000b1': { fund_id: '00000000-0000-4000-8000-0000000000a1' } },
-    fund_navs: { nav1: { share_class_id: '00000000-0000-4000-8000-0000000000b1', fund_id: '00000000-0000-4000-8000-0000000000a1', date: '2026-08-31' } },
-    fund_returns: { ret1: { share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-28' } },
-  };
-  assert.deepEqual(traceLeafTarget({ table: 'finance_fund_navs', id: 'nav1' }, entity, refs), { kind: 'nav', fund_id: '00000000-0000-4000-8000-0000000000a1', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-31' });
-  assert.deepEqual(traceLeafTarget({ table: 'finance_fund_returns', id: 'ret1' }, entity, refs), { kind: 'return', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-28' });
+test('domain: trace leaves use the share class and date stored on the leaf', () => {
+  const refs = { share_classes: { '00000000-0000-4000-8000-0000000000b1': { fund_id: '00000000-0000-4000-8000-0000000000a1' } } };
+  assert.deepEqual(traceLeafTarget({ table: 'finance_fund_navs', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-31' }, entity, refs), { kind: 'nav', fund_id: '00000000-0000-4000-8000-0000000000a1', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-31' });
+  assert.equal(traceLeafTarget({ table: 'finance_fund_navs', id: 'nav1' }, entity, refs), null);
+  assert.deepEqual(traceLeafTarget({ table: 'finance_fund_returns', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-28' }, entity, refs), { kind: 'return', share_class_id: '00000000-0000-4000-8000-0000000000b1', date: '2026-08-28' });
   assert.deepEqual(traceLeafTarget({ table: 'finance_transactions', id: 't1' }, entity, refs), { kind: 'trades', entity_id: entity });
   assert.deepEqual(traceLeafTarget({ table: 'finance_benchmark_values', id: '00000000-0000-4000-8000-0000000000c1', date: '2026-08-31' }, entity, refs), { kind: 'benchmark', benchmark_id: '00000000-0000-4000-8000-0000000000c1', date: '2026-08-31' });
   assert.deepEqual(traceLeafTarget({ table: 'finance_funds', id: '00000000-0000-4000-8000-0000000000a1', col: 'strategy' }, entity, refs), { kind: 'fund', fund_id: '00000000-0000-4000-8000-0000000000a1', field: 'strategy' });
@@ -150,6 +147,7 @@ test('domain: finding reviews block publish only for open errors and needs-fix',
   assert.equal(findingKey(0, error), findingKey(0, { ...error }));
   assert.notEqual(findingKey(0, error), findingKey(1, error));
   assert.equal(noteRequired('错误', 'confirmed'), true);
+  assert.equal(noteRequired('错误', null), false);
   assert.equal(noteRequired('警告', 'confirmed'), false);
   assert.equal(noteRequired('警告', 'not_applicable'), true);
   assert.equal(reviewGate(keyed, null, '').blockers.map(item => item.code).join(','), 'REVIEW_INCOMPLETE,REVIEW_NOTE_REQUIRED');
@@ -158,7 +156,8 @@ test('domain: finding reviews block publish only for open errors and needs-fix',
   assert.equal(reviewGate(keyed, confirmed, '已核对').ok, true);
   const fixing = { items: { [keyed[1].key]: { status: 'needs_fix' as const }, [keyed[0].key]: { status: 'confirmed' as const } } };
   assert.equal(reviewGate(keyed, fixing, '已核对').blockers[0].code, 'REVIEW_NEEDS_FIX');
-  assert.equal(findingFingerprint({ ...error, code: 'DATA_MISSING', loc: { date: '2026-08-31' } }), 'DATA_MISSING|示例基金A|2026年8月|2026-08-31');
+  assert.equal(findingFingerprint({ ...error, code: 'DATA_MISSING', loc: { date: '2026-08-31', field: 'nav' } }), 'DATA_MISSING|示例基金A|2026年8月|2026-08-31|nav|');
+  assert.notEqual(findingFingerprint({ ...error, code: 'TAG_NOT_ALLOWED', loc: { field: 'strategy' } }), findingFingerprint({ ...error, code: 'TAG_NOT_ALLOWED', loc: { field: 'allocation_role' } }));
   assert.equal(findingFingerprint({ ...error, title: '示例 12 项' }), '数据缺失|示例基金A|2026年8月|示例 # 项');
 });
 
@@ -186,5 +185,15 @@ test('domain: report compare matches leaves by record identity', () => {
   assert.equal(one.data.reason, 'base_no_trace');
   const mismatch = compareReports(compareRun('base', { trace: { ...baseTrace, schema: 'old' } }), compareRun('head', { trace: headTrace }));
   assert.equal(mismatch.data.reason, 'schema_mismatch');
+  assert.equal(mismatch.data.source, 'none');
+  const shared = { level: '警告', category: '数据缺失', title: '示例基金A 2026年8月：缺少数据', detail: '', suggestion: '', fund: '示例基金A', month: '2026年8月' };
+  const mixed = compareReports(compareRun('base', { findings: [shared] }), compareRun('head', { findings: [{ ...shared, code: 'DATA_MISSING', loc: { date: '2026-08-31' } }] }));
+  assert.equal(mixed.findings.unchanged, 1);
+  assert.equal(mixed.findings.added.length, 0);
+  assert.equal(mixed.findings.removed.length, 0);
+  const bare = { schema: 'return-report.trace/v1', outputs: {}, nodes: { n1: { op: 'leaf', label: '未标明来源', value: 1, src: { table: 'finance_funds', col: 'note' } } } };
+  const bareHead = { schema: 'return-report.trace/v1', outputs: {}, nodes: { n1: { op: 'leaf', label: '未标明来源', value: 2, src: { table: 'finance_funds', col: 'note' } } } };
+  const unnamed = compareReports(compareRun('base', { trace: bare }), compareRun('head', { trace: bareHead }));
+  assert.deepEqual(unnamed.data.leaves.map(item => item.change), ['value']);
   assert.throws(() => compareReports(compareRun('base', { entity_id: 'other' }), compareRun('head')), (error: ReportError) => error.code === 'COMPARE_SCOPE');
 });
