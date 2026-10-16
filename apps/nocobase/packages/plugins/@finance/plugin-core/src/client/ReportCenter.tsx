@@ -30,7 +30,7 @@ export function TargetButton({ item, canWrite, canConfigure, openTarget }: { ite
   const target = item.target;
   if (!target || !openTarget) return null;
   const configure = target.kind === 'options';
-  const needsWrite = target.kind === 'return' || target.kind === 'fund' || target.kind === 'benchmark';
+  const needsWrite = target.kind === 'return' || target.kind === 'fund' || target.kind === 'benchmark' || target.kind === 'nav' || target.kind === 'trades';
   const enabled = configure ? !!canConfigure : needsWrite ? canWrite : true;
   const button = <Button type="link" size="small" disabled={!enabled} onClick={() => openTarget(target)}>{targetLabel(item.code, target.kind)}</Button>;
   return enabled ? button : <Tooltip title={configure ? '仅候选配置管理员可修改' : '当前角色只读'}><span>{button}</span></Tooltip>;

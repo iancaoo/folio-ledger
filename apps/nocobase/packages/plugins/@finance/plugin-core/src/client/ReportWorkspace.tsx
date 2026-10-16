@@ -93,6 +93,6 @@ export function ReportWorkspace({ active, canWrite, entityId, refresh = 0, openT
         pagination={{ current: query.page, pageSize: query.page_size, total: result.count, showSizeChanger: true, onChange: (page, page_size) => setQuery(old => ({ ...old, page: page_size !== old.page_size ? 1 : page, page_size })) }} />
     </Card>
     <ReportDrawer id={openId} close={() => setOpenId(undefined)} canWrite={canWrite} post={post} busy={busy} tick={tick} />
-    <ReadinessDrawer open={checkOpen} close={() => setCheckOpen(false)} entityId={target.entity_id} month={target.report_month} benchmarkIds={target.benchmark_ids} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh + tick} openTarget={openTarget} onGenerated={bump} />
+    <ReadinessDrawer open={checkOpen} close={() => setCheckOpen(false)} entityId={target.entity_id} month={target.report_month} benchmarkIds={target.benchmark_ids} canWrite={canWrite} canConfigure={canConfigure} refresh={refresh} openTarget={openTarget} onGenerated={bump} />
   </div>;
 }
